@@ -14,6 +14,7 @@ model DiscoveredJob {
   location            String
   sourcePortal        String
   url                 String    @unique
+  normalizedUrl       String    @unique // Unique index on normalized URL
   snippet             String
   matchScore          Int
   rankingData         String?   // JSON-serialised RankingExplanation
@@ -32,6 +33,10 @@ model DiscoveredJob {
   outputTokens        Int?
   latencyMs           Int?
   costUsd             Float?
+  rejected            Boolean   @default(false) // Explicit rejected flag
 
   @@index([jobHash])
+  @@index([scrapedAt])
+  @@index([matchScore])
+  @@index([rejected])
 }

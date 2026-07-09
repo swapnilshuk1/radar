@@ -1,12 +1,13 @@
 // lib/ranking/Telemetry.ts
-// Structured logging and latency profiling telemetry layer for RADAR.
-// Emits standardized JSON and console markers for observability across all matching stages.
+// Structured logging, latency profiling, and Trace ID tracking layer for RADAR.
+// Emits standardized trace logs across Scraper, Normalizer, Scoring, Decision, Evidence, Briefings, and Database stages.
 
 export interface TelemetryEvent {
-  jobId?: string;
-  stage: "ingest" | "normalization" | "registry" | "decision" | "evidence" | "briefing" | "overall";
-  status: "SUCCESS" | "FAILED";
-  durationMs: number;
+  traceId: string;
+  stage: "scraper" | "normalizer" | "scoring" | "decision" | "evidence" | "briefings" | "database" | "overall";
+  status: "SUCCESS" | "FAILED" | "INFO";
+  durationMs?: number;
+  message: string;
   metadata?: Record<string, unknown>;
   error?: string;
 }
@@ -15,31 +16,45 @@ export class Telemetry {
   private static stageTimers = new Map<string, number>();
 
   /**
-   * Starts a timer for a specific job execution stage.
+   * Generates a unique, traceable ID for an end-to-end pipeline run.
    */
-  public static startTimer(key: string): void {
-    this.stageTimers.set(key, performance.now());
+  public static generateTraceId(): string {
+    const timestamp = Date.now();
+    const randomSuffix = Math.random().toString(36).substring(2, 6);
+    return `tr-${timestamp}-${randomSuffix}`;
   }
 
   /**
-   * Stops a timer and logs the elapsed time for a specific stage.
+   * Starts a timing profile for a specific trace and stage key.
+   */
+  public static startTimer(traceId: string, stage: TelemetryEvent["stage"]): void {
+    const timerKey = `${traceId}-${stage}`;
+    this.stageTimers.set(timerKey, performance.now());
+  }
+
+  /**
+   * Stops a timing profile and logs the event with its duration in milliseconds.
    */
   public static stopTimer(
-    key: string,
+    traceId: string,
     stage: TelemetryEvent["stage"],
     status: TelemetryEvent["status"],
+    message: string,
     metadata?: Record<string, unknown>,
     error?: string
   ): number {
-    const startTime = this.stageTimers.get(key);
+    const timerKey = `${traceId}-${stage}`;
+    const startTime = this.stageTimers.get(timerKey);
     const endTime = performance.now();
     const durationMs = startTime ? Math.round(endTime - startTime) : 0;
-    this.stageTimers.delete(key);
+    this.stageTimers.delete(timerKey);
 
     const event: TelemetryEvent = {
+      traceId,
       stage,
       status,
       durationMs,
+      message,
       metadata,
       error
     };
@@ -49,15 +64,36 @@ export class Telemetry {
   }
 
   /**
-   * Formats and prints the telemetry event to stdout/logs.
+   * Emits a standard structured log line with context markers.
+   */
+  public static log(
+    traceId: string,
+    stage: TelemetryEvent["stage"],
+    status: TelemetryEvent["status"],
+    message: string,
+    metadata?: Record<string, unknown>
+  ): void {
+    const event: TelemetryEvent = {
+      traceId,
+      stage,
+      status,
+      message,
+      metadata
+    };
+    this.emit(event);
+  }
+
+  /**
+   * Prints the telemetry trace event.
    */
   private static emit(event: TelemetryEvent): void {
     const timestamp = new Date().toISOString();
-    const logString = `[RADAR-TELEMETRY] [${timestamp}] [${event.stage.toUpperCase()}] [${event.status}] duration=${event.durationMs}ms${
-      event.metadata ? ` metadata=${JSON.stringify(event.metadata)}` : ""
-    }${event.error ? ` error="${event.error}"` : ""}`;
+    const logString = `[RADAR-TRACE] [${timestamp}] [${event.traceId}] [${event.stage.toUpperCase()}] [${event.status}] ${event.message}${
+      event.durationMs !== undefined ? ` duration=${event.durationMs}ms` : ""
+    }${event.metadata ? ` metadata=${JSON.stringify(event.metadata)}` : ""}${
+      event.error ? ` error="${event.error}"` : ""
+    }`;
 
-    // Standard console out
     console.log(logString);
   }
 }

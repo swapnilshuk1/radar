@@ -2,6 +2,7 @@ import { chromium } from 'playwright-extra';
 import stealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { prisma } from './db';
 import { RankingEngine } from './ranking/RankingService';
+import { Telemetry } from './ranking/Telemetry';
 import { getConfig, getCandidateProfile } from './ranking/config';
 import { OpportunityEnrichmentService } from './ranking/OpportunityEnrichmentService';
 import path from 'path';
@@ -242,6 +243,11 @@ async function handleCaptchaOrLoginGate(page: any, portal: string, searchUrl: st
 export async function runScraper(logCallback: (msg: string) => void) {
   (global as any).shouldStopScraper = false;
   const config = getConfig();
+
+  // Generate a unique Trace ID for the full pipeline run
+  const traceId = Telemetry.generateTraceId();
+  Telemetry.log(traceId, "scraper", "INFO", "Scraper session started");
+  logCallback(`[Trace ID: ${traceId}] Scraper session started.`);
   
   // Set up user data directory outside of the Next.js project directory
   // to prevent Turbopack's file watcher from trying to read locked files.
@@ -684,12 +690,15 @@ export async function runScraper(logCallback: (msg: string) => void) {
               continue; // Skip ranking and LLM enrichment entirely
             }
 
+            Telemetry.startTimer(traceId, "normalizer");
             const ruleScore = RankingEngine.evaluateRulesOnly({
               title: job.title,
               snippet: job.snippet || '',
               location: job.location,
               company: job.company
-            });
+            }, undefined, traceId);
+            Telemetry.stopTimer(traceId, "normalizer", ruleScore === 0 ? "FAILED" : "SUCCESS",
+              `Rule pre-filter: ${job.title}`, { ruleScore });
 
             if (ruleScore === 0) {
               logCallback(`[Filters] Rejected (filtered out by title/content exclusions): "${job.title}"`);
@@ -704,7 +713,7 @@ export async function runScraper(logCallback: (msg: string) => void) {
               location: job.location,
               company: job.company,
               semanticData: null
-            });
+            }, undefined, traceId);
 
             if (initResult.rejected) {
               logCallback(`[Filters] Rejected (rules evaluation failed): "${job.title}" — ${initResult.rejectReason}`);
@@ -741,7 +750,7 @@ export async function runScraper(logCallback: (msg: string) => void) {
                   location: job.location,
                   company: job.company,
                   semanticData: semData
-                }, profile);
+                }, profile, traceId);
 
                 if (finalResult.explanation) {
                   finalExplanation = finalResult.explanation;
@@ -755,6 +764,8 @@ export async function runScraper(logCallback: (msg: string) => void) {
 
             try {
               // DATABASE UPSERT (Only update scrapedAt on duplicate to preserve status and rating)
+              Telemetry.startTimer(traceId, "database");
+              const normalizedUrl = job.url.split('?')[0].toLowerCase().trim();
               await prisma.discoveredJob.upsert({
                 where: { url: job.url },
                 update: { scrapedAt: new Date() },
@@ -764,18 +775,24 @@ export async function runScraper(logCallback: (msg: string) => void) {
                   location: job.location,
                   sourcePortal: job.sourcePortal,
                   url: job.url,
+                  normalizedUrl,
                   snippet: job.snippet || '',
                   matchScore: finalScore,
                   rankingData: JSON.stringify(finalExplanation),
                   rankingVersion: finalExplanation.version,
                   rankingConfigVersion: finalExplanation.configVersion,
                   semanticData: semanticDataJson,
+                  jobHash: finalExplanation.jobHash ?? null,
+                  rejected: false,
                   status: 'New',
                   scrapedAt: new Date()
                 }
               });
+              Telemetry.stopTimer(traceId, "database", "SUCCESS",
+                `Saved: ${job.title}`, { url: job.url, score: finalScore });
               savedCount++;
             } catch (dbError: any) {
+              Telemetry.log(traceId, "database", "FAILED", `DB save failed: ${job.title}`, { error: dbError.message });
               logCallback(`Database saving error for ${job.title}: ${dbError.message}`);
             }
           }

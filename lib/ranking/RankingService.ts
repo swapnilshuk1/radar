@@ -93,9 +93,9 @@ export class RankingEngine {
    * Evaluate only local rules to return a base score (0-100) for Scraper gating.
    * Uses configurable weights from config or local defaults.
    */
-  public static evaluateRulesOnly(job: Omit<JobInput, 'semanticData'>, profile?: CandidateProfile): number {
-    const telemetryKey = `${job.title}-${Date.now()}`;
-    Telemetry.startTimer(telemetryKey);
+  public static evaluateRulesOnly(job: Omit<JobInput, 'semanticData'>, profile?: CandidateProfile, traceId?: string): number {
+    const activeTraceId = traceId ?? Telemetry.generateTraceId();
+    Telemetry.startTimer(activeTraceId, "normalizer");
 
     const resolvedProfile = profile ?? getCandidateProfile();
     const normalizedJob = normalize({ ...job, semanticData: null });
@@ -107,14 +107,17 @@ export class RankingEngine {
     };
 
     if (this.isExcluded(normalizedJob, context.config)) {
-      Telemetry.stopTimer(telemetryKey, "normalization", "FAILED", { reason: "Exclusion matched", title: job.title });
+      Telemetry.stopTimer(activeTraceId, "normalizer", "FAILED", `Exclusion matched for title: ${job.title}`);
       return 0;
     }
 
+    Telemetry.stopTimer(activeTraceId, "normalizer", "SUCCESS", `Normalization complete: ${job.title}`);
+
+    Telemetry.startTimer(activeTraceId, "scoring");
     const fitVector = DimensionRegistry.executeAll(context);
     const score = this.computeWeightedScore(fitVector);
+    Telemetry.stopTimer(activeTraceId, "scoring", "SUCCESS", `Local scoring complete: ${score}`, { score });
 
-    Telemetry.stopTimer(telemetryKey, "normalization", "SUCCESS", { score, title: job.title });
     return score;
   }
 
@@ -149,9 +152,9 @@ export class RankingEngine {
    * Evaluates a job against a profile, triggering external LLM enrichment if qualified.
    * Consumes cached semanticData from SQLite if available.
    */
-  public static evaluate(job: JobInput, profile?: CandidateProfile): RankingResult {
-    const telemetryKey = `${job.title}-${Date.now()}`;
-    Telemetry.startTimer(telemetryKey);
+  public static evaluate(job: JobInput, profile?: CandidateProfile, traceId?: string): RankingResult {
+    const activeTraceId = traceId ?? Telemetry.generateTraceId();
+    Telemetry.startTimer(activeTraceId, "normalizer");
 
     const resolvedProfile = profile ?? getCandidateProfile();
     const normalizedJob = normalize(job);
@@ -164,18 +167,26 @@ export class RankingEngine {
 
     // Check hard filters
     if (this.isExcluded(normalizedJob, context.config)) {
-      Telemetry.stopTimer(telemetryKey, "normalization", "FAILED", { reason: "Exclusion matched", title: job.title });
+      Telemetry.stopTimer(activeTraceId, "normalizer", "FAILED", `Exclusion matched for title: ${job.title}`);
       return {
         rejected: true,
         rejectReason: "Exclusions matched"
       };
     }
 
+    Telemetry.stopTimer(activeTraceId, "normalizer", "SUCCESS", `Normalization complete: ${job.title}`);
+
+    Telemetry.startTimer(activeTraceId, "scoring");
     // 1. Compute Deterministic Fit Vector (measures timings automatically)
     const fitVector = DimensionRegistry.executeAll(context);
+    Telemetry.stopTimer(activeTraceId, "scoring", "SUCCESS", `Evaluators scoring pipeline executed`);
 
     // 2. Decision Engine mapping (ruleId audit & traceable reasons)
+    Telemetry.startTimer(activeTraceId, "decision");
     const decision = DecisionEngine.evaluate(fitVector);
+    Telemetry.stopTimer(activeTraceId, "decision", "SUCCESS",
+      `Rule fired: ${decision.ruleId} → ${decision.recommendation}`,
+      { ruleId: decision.ruleId, verdict: decision.verdict, reasons: decision.reasons });
 
     // 3. Score Coverage & Algorithmic Confidence
     const scoreCoverage = this.calculateCoverage(normalizedJob);
@@ -185,6 +196,7 @@ export class RankingEngine {
       : 0.5;
 
     // 4. Ingest qualitative evidence (Gemini / cache)
+    Telemetry.startTimer(activeTraceId, "evidence");
     let parsedEvidence = {
       summary: 'Deterministic match complete. Ingesting opportunity.',
       strengths: fitVector.functionalFit?.matched.map(m => m.label) || [],
@@ -198,7 +210,6 @@ export class RankingEngine {
       try {
         const cachedSem = JSON.parse(job.semanticData);
         if (cachedSem.summary && cachedSem.summary.startsWith("Local offline check")) {
-          // Re-evaluate local fallback values based on the new fitVector
           parsedEvidence = OpportunityEnrichmentService.getLocalFallback(context, fitVector);
         } else {
           parsedEvidence = {
@@ -212,12 +223,17 @@ export class RankingEngine {
         status = EvaluationStatus.PARTIAL;
       }
     }
+    Telemetry.stopTimer(activeTraceId, "evidence", status === EvaluationStatus.PARTIAL ? "FAILED" : "SUCCESS",
+      `Evidence ingested: ${parsedEvidence.strengths.length} strengths, ${parsedEvidence.gaps.length} gaps`);
 
     const overallScore = this.computeWeightedScore(fitVector);
 
     // 5. Compile the BriefingBundle via IntelligenceEngine
+    Telemetry.startTimer(activeTraceId, "briefings");
     const briefingBundle = IntelligenceEngine.getBriefings(context, fitVector);
     const jobHash = this.computeHash(normalizedJob);
+    Telemetry.stopTimer(activeTraceId, "briefings", "SUCCESS",
+      `Briefings compiled: ${Object.keys(briefingBundle || {}).length} sections`, { jobHash });
 
     // Build the consolidated V3.1 EvaluationResult payload
     const evalResult: EvaluationResult = {
@@ -271,12 +287,9 @@ export class RankingEngine {
       evalResult
     };
 
-    Telemetry.stopTimer(telemetryKey, "overall", "SUCCESS", { 
-      score: overallScore, 
-      verdict: decision.verdict, 
-      ruleId: decision.ruleId,
-      title: job.title 
-    });
+    Telemetry.stopTimer(activeTraceId, "overall", "SUCCESS",
+      `Evaluation complete for: ${job.title}`,
+      { score: overallScore, verdict: decision.verdict, ruleId: decision.ruleId });
 
     return {
       rejected: false,

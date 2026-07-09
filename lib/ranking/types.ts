@@ -207,6 +207,7 @@ export interface RankingExplanation {
   configVersion: string;
   matchScore: number;
   priority: PriorityTier;
+  jobHash?: string;
   confidence: ConfidenceResult;
   breakdown: RankingDimension[];
   insights: OpportunityInsights;
