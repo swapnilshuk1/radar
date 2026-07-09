@@ -1,5 +1,5 @@
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -14,7 +14,7 @@ model DiscoveredJob {
   location            String
   sourcePortal        String
   url                 String    @unique
-  normalizedUrl       String    @unique // Unique index on normalized URL
+  normalizedUrl       String?   @unique // Unique index on normalized URL
   snippet             String
   matchScore          Int
   rankingData         String?   // JSON-serialised RankingExplanation

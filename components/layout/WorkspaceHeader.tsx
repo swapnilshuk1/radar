@@ -57,7 +57,7 @@ export function WorkspaceHeader({
         {/* Muted metrics dashboard */}
         <div className="hidden md:flex items-center gap-2.5 text-[10px] text-slate-500 font-semibold">
           <span>
-            <span className="text-slate-350 font-bold">{totalCount}</span> feed
+            <span className="text-slate-300 font-bold">{totalCount}</span> feed
           </span>
           <span>•</span>
           <span>
@@ -65,12 +65,12 @@ export function WorkspaceHeader({
           </span>
           <span>•</span>
           <span>
-            <span className="text-emerald-450 font-bold">{reviewedCount}</span> saved
+            <span className="text-emerald-500 font-bold">{reviewedCount}</span> saved
           </span>
           {maxScore > 0 && (
             <>
               <span>•</span>
-              <span className="text-emerald-450 font-bold">
+              <span className="text-emerald-500 font-bold">
                 ▲ {maxScore} max signal
               </span>
             </>
@@ -107,7 +107,7 @@ export function WorkspaceHeader({
           className={`px-3 py-1.5 border rounded transition-all flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider cursor-pointer ${
             insightsModeActive
               ? 'bg-slate-800 border-slate-700 text-white'
-              : 'border-slate-800 bg-transparent text-slate-400 hover:bg-slate-850 hover:text-white'
+              : 'border-slate-800 bg-transparent text-slate-400 hover:bg-slate-800 hover:text-white'
           }`}
           title="Toggle Insights"
         >
@@ -119,7 +119,7 @@ export function WorkspaceHeader({
         <button
           onClick={fetchJobs}
           disabled={loadingJobs}
-          className="px-3 py-1.5 border border-slate-800 bg-transparent hover:bg-slate-850 text-slate-400 hover:text-white rounded transition-all flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider disabled:opacity-30 cursor-pointer"
+          className="px-3 py-1.5 border border-slate-800 bg-transparent hover:bg-slate-800 text-slate-400 hover:text-white rounded transition-all flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider disabled:opacity-30 cursor-pointer"
           title="Sync Feed"
         >
           <RefreshCw className={`w-3 h-3 shrink-0 ${loadingJobs ? "animate-spin" : ""}`} />

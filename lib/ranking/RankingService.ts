@@ -134,25 +134,34 @@ export class RankingEngine {
   }
 
   /**
-   * Computes the combined weighted score based on weights registry config.
+   * Maps the evaluator's dimensionName (camelCase, from DimensionRegistry) to
+   * the corresponding key in agg.json ranking_engine.dimensions (snake_case).
+   * Kept centralised here so adding a new evaluator only requires one addition.
+   */
+  private static readonly DIMENSION_KEY_MAP: Record<string, string> = {
+    titleFit:             'title_fit',
+    leadershipFit:        'seniority_fit',
+    functionalFit:        'functional_fit',
+    careerProgressionFit: 'exec_signals',
+    industryFit:          'industry_fit',
+    companyHealth:        'company_quality',
+    locationFit:          'location_pref',
+    semanticSimilarity:   'semantic_similarity',
+  };
+
+  /**
+   * Computes the combined weighted score based on weights from agg.json dimensions config.
    */
   private static computeWeightedScore(fitVector: FitVector): number {
-    // Target Weights config
-    const weights: Record<string, number> = {
-      titleFit: 0.25,
-      leadershipFit: 0.20,
-      functionalFit: 0.30,
-      industryFit: 0.10,
-      locationFit: 0.05,
-      careerProgressionFit: 0.10,
-      companyHealth: 0.0
-    };
+    const config = getRankingConfig();
+    const dimensionWeights = config.dimensions ?? {};
 
     let totalWeightedScore = 0;
     let totalWeight = 0;
 
     for (const [name, dim] of Object.entries(fitVector)) {
-      const weight = weights[name] ?? 0;
+      const configKey = this.DIMENSION_KEY_MAP[name] ?? name;
+      const weight = dimensionWeights[configKey]?.weight ?? 0;
       totalWeightedScore += dim.score * weight;
       totalWeight += weight;
     }
@@ -293,14 +302,19 @@ export class RankingEngine {
         score: overallConfidence,
         basis: "Computed from localized fit vector parameters coverage."
       },
-      breakdown: Object.entries(fitVector).map(([name, dim]) => ({
-        name: this.mapDimensionKeyToLabel(name),
-        weight: 15,
-        rawScore: dim.score / 100,
-        weightedScore: (dim.score / 100) * 15,
-        matchedTerms: dim.matched.map(m => m.label),
-        missedTerms: dim.missing.map(m => m.label)
-      })),
+      breakdown: Object.entries(fitVector).map(([name, dim]) => {
+        const configKey = this.DIMENSION_KEY_MAP[name] ?? name;
+        const configWeight = getRankingConfig().dimensions?.[configKey]?.weight ?? 0;
+        // agg.json weights are already percentages (e.g. 20, 12) not decimals
+        return {
+          name: this.mapDimensionKeyToLabel(name),
+          weight: configWeight,
+          rawScore: dim.score / 100,
+          weightedScore: (dim.score / 100) * configWeight,
+          matchedTerms: dim.matched.map(m => m.label),
+          missedTerms: dim.missing.map(m => m.label)
+        };
+      }),
       insights: {
         summary: evalResult.evidence.summary,
         topStrengths: evalResult.evidence.strengths,

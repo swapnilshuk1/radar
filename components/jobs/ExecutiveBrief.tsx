@@ -46,26 +46,26 @@ const RECOMMENDATION_LABELS: Record<PriorityTier, string> = {
 };
 
 const RECOMMENDATION_COLORS: Record<PriorityTier, string> = {
-  'Must Review':     'text-emerald-450 font-extrabold',
-  'Strong Match':    'text-emerald-450 font-extrabold',
+  'Must Review':     'text-emerald-500 font-extrabold',
+  'Strong Match':    'text-emerald-500 font-extrabold',
   'Worth Reviewing': 'text-amber-400 font-extrabold',
   'Possible Match':  'text-slate-400 font-semibold',
   'Low Priority':    'text-slate-500 font-semibold',
 };
 
 function getQualitativeLabel(score: number): { text: string; color: string; bg: string } {
-  if (score >= 0.8) return { text: 'Excellent', color: 'text-emerald-450 font-extrabold', bg: 'bg-emerald-950/20' };
-  if (score >= 0.6) return { text: 'Strong',    color: 'text-blue-450 font-extrabold',    bg: 'bg-blue-950/20'    };
-  if (score >= 0.4) return { text: 'Moderate',  color: 'text-amber-450 font-extrabold',   bg: 'bg-amber-950/20'   };
-  if (score > 0)    return { text: 'Weak',      color: 'text-slate-405 font-medium',      bg: 'bg-slate-800/30'   };
+  if (score >= 0.8) return { text: 'Excellent', color: 'text-emerald-500 font-extrabold', bg: 'bg-emerald-950/20' };
+  if (score >= 0.6) return { text: 'Strong',    color: 'text-blue-500 font-extrabold',    bg: 'bg-blue-950/20'    };
+  if (score >= 0.4) return { text: 'Moderate',  color: 'text-amber-500 font-extrabold',   bg: 'bg-amber-950/20'   };
+  if (score > 0)    return { text: 'Weak',      color: 'text-slate-400 font-medium',      bg: 'bg-slate-800/30'   };
   return { text: 'Missing',   color: 'text-slate-500 font-medium',      bg: 'bg-slate-800/10'    };
 }
 
 function DimensionRow({ dimension }: { dimension: RankingDimension }) {
   const label = getQualitativeLabel(dimension.rawScore);
   return (
-    <div className="flex justify-between items-center py-2 border-b border-slate-850">
-      <span className="text-[11px] font-semibold text-slate-450">{dimension.name}</span>
+    <div className="flex justify-between items-center py-2 border-b border-slate-800">
+      <span className="text-[11px] font-semibold text-slate-400">{dimension.name}</span>
       <span className={`text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.2 rounded ${label.bg} ${label.color}`}>
         {label.text}
       </span>
@@ -79,7 +79,7 @@ function BriefingSectionRenderer({ section }: { section: BriefingSection }) {
     return (
       <div className="space-y-1">
         <p className="text-[9.5px] font-extrabold uppercase tracking-wider text-slate-500">{section.title}</p>
-        <p className="text-[11.5px] text-slate-350 leading-relaxed font-semibold">{section.content as string}</p>
+        <p className="text-[11.5px] text-slate-300 leading-relaxed font-semibold">{section.content as string}</p>
       </div>
     );
   }
@@ -89,7 +89,7 @@ function BriefingSectionRenderer({ section }: { section: BriefingSection }) {
     return (
       <div className="space-y-1.5">
         <p className="text-[9.5px] font-extrabold uppercase tracking-wider text-slate-500">{section.title}</p>
-        <ul className="space-y-1 text-[11px] text-slate-350 font-semibold">
+        <ul className="space-y-1 text-[11px] text-slate-300 font-semibold">
           {list.map((item, idx) => (
             <li key={idx} className="flex items-start gap-1.5">
               <span className="text-emerald-500 font-extrabold shrink-0">✓</span>
@@ -105,7 +105,7 @@ function BriefingSectionRenderer({ section }: { section: BriefingSection }) {
     const list = section.content as string[];
     return (
       <div className="space-y-1.5">
-        <p className="text-[9.5px] font-extrabold uppercase tracking-wider text-slate-550">{section.title}</p>
+        <p className="text-[9.5px] font-extrabold uppercase tracking-wider text-slate-500">{section.title}</p>
         <ul className="space-y-1 text-[11px] text-slate-400 font-semibold">
           {list.map((item, idx) => (
             <li key={idx} className="flex items-start gap-1.5">
@@ -125,7 +125,7 @@ function BriefingSectionRenderer({ section }: { section: BriefingSection }) {
         <p className="text-[9.5px] font-extrabold uppercase tracking-wider text-slate-500">{section.title}</p>
         <div className="flex flex-wrap gap-1.5">
           {list.map((tag, idx) => (
-            <span key={idx} className="text-[9px] font-bold uppercase tracking-wider bg-slate-900 border border-slate-800 text-slate-350 px-2 py-0.5 rounded">
+            <span key={idx} className="text-[9px] font-bold uppercase tracking-wider bg-slate-900 border border-slate-800 text-slate-300 px-2 py-0.5 rounded">
               {tag}
             </span>
           ))}
@@ -138,12 +138,12 @@ function BriefingSectionRenderer({ section }: { section: BriefingSection }) {
     const grid = section.content as Record<string, string | number>;
     return (
       <div className="space-y-2">
-        <p className="text-[9.5px] font-extrabold uppercase tracking-wider text-slate-550">{section.title}</p>
+        <p className="text-[9.5px] font-extrabold uppercase tracking-wider text-slate-500">{section.title}</p>
         <div className="grid grid-cols-2 gap-2 text-[10px]">
           {Object.entries(grid).map(([label, val], idx) => (
-            <div key={idx} className="bg-slate-900/50 border border-slate-850 p-2 rounded">
+            <div key={idx} className="bg-slate-900/50 border border-slate-800 p-2 rounded">
               <span className="text-slate-500 font-semibold block mb-0.5">{label}</span>
-              <span className="text-slate-205 font-extrabold font-mono">{val}</span>
+              <span className="text-slate-200 font-extrabold font-mono">{val}</span>
             </div>
           ))}
         </div>
@@ -174,7 +174,7 @@ export function ExecutiveBrief({ job, briefingBundle, onUpdateStatus }: Executiv
       <div className="flex flex-col items-center justify-center text-center h-full min-h-[350px] text-slate-500 font-sans p-6 select-none">
         <Sparkles className="w-5 h-5 opacity-20 text-slate-400 animate-pulse" />
         <h4 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mt-3">Executive Briefing</h4>
-        <p className="text-[11px] text-slate-550 mt-1 max-w-[200px] leading-relaxed">
+        <p className="text-[11px] text-slate-500 mt-1 max-w-[200px] leading-relaxed">
           Select an opportunity from the console feed to render intelligence briefing.
         </p>
       </div>
@@ -252,17 +252,17 @@ export function ExecutiveBrief({ job, briefingBundle, onUpdateStatus }: Executiv
           
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-400 font-semibold mt-2">
             <span className="flex items-center gap-1">
-              <Building2 className="w-3.5 h-3.5 text-slate-550 shrink-0" />
+              <Building2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
               {job.company}
             </span>
             {job.location && job.location.trim() !== "" && (
               <span className="flex items-center gap-1">
-                <MapPin className="w-3.5 h-3.5 text-slate-550 shrink-0" />
+                <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                 {job.location}
               </span>
             )}
             <span className="flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5 text-slate-550 shrink-0" />
+              <Calendar className="w-3.5 h-3.5 text-slate-500 shrink-0" />
               {relativeDate}
             </span>
           </div>
@@ -270,7 +270,7 @@ export function ExecutiveBrief({ job, briefingBundle, onUpdateStatus }: Executiv
       </div>
 
       {explanation ? (
-        <div className="space-y-6 divide-y divide-slate-850">
+        <div className="space-y-6 divide-y divide-slate-800">
 
           {/* 2. Deep Reasoning Score Breakdown */}
           <div className="space-y-2 pt-4 first:pt-0 border-t-0">
@@ -329,7 +329,7 @@ export function ExecutiveBrief({ job, briefingBundle, onUpdateStatus }: Executiv
                       className="w-full text-left p-3.5 flex items-center justify-between gap-4 cursor-pointer"
                     >
                       <div className="flex items-start gap-3 min-w-0">
-                        <IconComponent className="w-4 h-4 text-slate-405 mt-0.5 shrink-0" />
+                        <IconComponent className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
                         <div>
                           <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 leading-tight">
                             {brief.title}
@@ -361,7 +361,7 @@ export function ExecutiveBrief({ job, briefingBundle, onUpdateStatus }: Executiv
                           </div>
 
                           {/* 3. Freshness metadata details */}
-                          <div className="flex flex-wrap gap-x-2.5 text-[8.5px] text-slate-550 font-mono pt-1">
+                          <div className="flex flex-wrap gap-x-2.5 text-[8.5px] text-slate-500 font-mono pt-1">
                             <span>SOURCES: {brief.sources.map(s => s.name).join(', ')}</span>
                             <span>•</span>
                             <span>REFRESHED: {new Date(brief.lastEvaluated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
@@ -377,10 +377,10 @@ export function ExecutiveBrief({ job, briefingBundle, onUpdateStatus }: Executiv
 
           {/* 8. Confidence metadata details */}
           <div className="pt-4 flex items-start gap-3">
-            <Info className="w-4 h-4 text-slate-550 shrink-0 mt-0.5" />
+            <Info className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
             <div className="space-y-1">
               <span className={`text-[9.5px] font-extrabold tracking-wider ${
-                confidenceLevel === 'HIGH' ? 'text-emerald-450' :
+                confidenceLevel === 'HIGH' ? 'text-emerald-500' :
                 confidenceLevel === 'MEDIUM' ? 'text-amber-400' : 'text-slate-500'
               }`}>
                 {confidenceLevel} ASSESSMENT CONFIDENCE
@@ -406,7 +406,7 @@ export function ExecutiveBrief({ job, briefingBundle, onUpdateStatus }: Executiv
       )}
 
       {/* 9. Core Actions panel */}
-      <div className="border-t border-slate-850 pt-4 flex gap-2.5">
+      <div className="border-t border-slate-800 pt-4 flex gap-2.5">
         <a
           href={absoluteUrl}
           target="_blank"
@@ -420,7 +420,7 @@ export function ExecutiveBrief({ job, briefingBundle, onUpdateStatus }: Executiv
         {job.status === "New" && (
           <button
             onClick={() => onUpdateStatus(job.id, "Reviewed")}
-            className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-slate-300 border border-slate-800 hover:bg-slate-850 hover:text-white px-3.5 py-2 rounded transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-slate-300 border border-slate-800 hover:bg-slate-800 hover:text-white px-3.5 py-2 rounded transition-colors cursor-pointer"
           >
             <CheckCircle className="w-3.5 h-3.5" />
             Save Briefing

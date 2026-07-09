@@ -140,7 +140,7 @@ export function OpportunityRow({ job, isActive, onSelect, onUpdateStatus }: Oppo
             <p className="text-[12px] font-medium text-slate-700 leading-normal mt-0.5">
               {job.company}
               {job.location && job.location.trim() !== "" && (
-                <span className="text-slate-450 font-normal"> • {job.location}</span>
+                <span className="text-slate-400 font-normal"> • {job.location}</span>
               )}
             </p>
 
@@ -182,21 +182,21 @@ export function OpportunityRow({ job, isActive, onSelect, onUpdateStatus }: Oppo
                     target="_blank"
                     rel="noreferrer"
                     onClick={(e) => e.stopPropagation()}
-                    className="p-1 border border-slate-205 bg-white hover:bg-slate-50 text-slate-400 hover:text-slate-800 rounded transition-all shadow-sm"
+                    className="p-1 border border-slate-200 bg-white hover:bg-slate-50 text-slate-400 hover:text-slate-800 rounded transition-all shadow-sm"
                     title="Open Listing"
                   >
                     <ExternalLink className="w-3 h-3" />
                   </a>
                   <button
                     onClick={(e) => { e.stopPropagation(); onUpdateStatus(job.id, "Reviewed"); }}
-                    className="p-1 border border-slate-205 bg-white text-slate-400 hover:text-emerald-700 hover:border-emerald-250 hover:bg-emerald-50 rounded transition-all cursor-pointer shadow-sm"
+                    className="p-1 border border-slate-200 bg-white text-slate-400 hover:text-emerald-700 hover:border-emerald-200 hover:bg-emerald-50 rounded transition-all cursor-pointer shadow-sm"
                     title="Save Opportunity"
                   >
                     <CheckCircle className="w-3 h-3" />
                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); onUpdateStatus(job.id, "Archived"); }}
-                    className="p-1 border border-slate-205 bg-white text-slate-400 hover:text-rose-700 hover:border-rose-250 hover:bg-rose-50 rounded transition-all cursor-pointer shadow-sm"
+                    className="p-1 border border-slate-200 bg-white text-slate-400 hover:text-rose-700 hover:border-rose-200 hover:bg-rose-50 rounded transition-all cursor-pointer shadow-sm"
                     title="Archive"
                   >
                     <Archive className="w-3 h-3" />
@@ -212,10 +212,10 @@ export function OpportunityRow({ job, isActive, onSelect, onUpdateStatus }: Oppo
         {isActive && (
           <div className="mt-3.5 pt-3.5 border-t border-slate-100 text-left space-y-2.5 animate-fadeIn">
             <div>
-              <span className="text-[9px] font-bold uppercase tracking-widest text-slate-450 block mb-1">
+              <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 block mb-1">
                 Recruiter Assessment Summary
               </span>
-              <p className="text-[12px] text-slate-650 leading-relaxed font-semibold">
+              <p className="text-[12px] text-slate-600 leading-relaxed font-semibold">
                 {sem ? sem.summary : (explanation?.insights?.summary || 'No diagnostic summary generated.')}
               </p>
             </div>

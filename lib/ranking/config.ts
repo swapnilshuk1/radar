@@ -71,28 +71,47 @@ export interface FullConfig {
 let cachedConfig: FullConfig | null = null;
 let cachedProfile: CandidateProfile | null = null;
 
-const CONFIG_PATHS = [
-  path.join(/* turbopackIgnore: true */ process.cwd(), 'agg.json'),
-  path.join(/* turbopackIgnore: true */ process.cwd(), '..', 'agg.json'),
-  'C:\\Users\\swapn\\Downloads\\Aggrigator\\agg.json'
-];
+const buildConfigPaths = (): string[] => {
+  const paths: string[] = [];
+  // Allow explicit override via env var (e.g. set in .env or CI)
+  if (process.env.CONFIG_PATH) {
+    paths.push(process.env.CONFIG_PATH);
+  }
+  // Standard project-root locations
+  paths.push(path.join(process.cwd(), 'agg.json'));
+  paths.push(path.join(process.cwd(), '..', 'agg.json'));
+  return paths;
+};
 
 export function getConfig(): FullConfig {
   if (cachedConfig) return cachedConfig;
 
-  for (const configPath of CONFIG_PATHS) {
+  const configPaths = buildConfigPaths();
+
+  for (const configPath of configPaths) {
     try {
       if (fs.existsSync(configPath)) {
         const raw = fs.readFileSync(configPath, 'utf-8');
-        cachedConfig = JSON.parse(raw) as FullConfig;
-        return cachedConfig;
+        try {
+          cachedConfig = JSON.parse(raw) as FullConfig;
+          return cachedConfig;
+        } catch (parseErr: any) {
+          throw new Error(
+            `[RADAR] agg.json found at "${configPath}" but failed to parse: ${parseErr.message}`
+          );
+        }
       }
-    } catch {
-      // Try next path
+    } catch (err: any) {
+      if (err.message.startsWith('[RADAR]')) throw err; // re-throw parse errors
+      // Otherwise try next path (access / permission errors etc.)
     }
   }
 
-  throw new Error('Config file (agg.json) not found.');
+  throw new Error(
+    `[RADAR] Config file (agg.json) not found. Tried:\n` +
+    configPaths.map(p => `  • ${p}`).join('\n') +
+    `\n\nSet the CONFIG_PATH environment variable or place agg.json at the project root.`
+  );
 }
 
 export function getRankingConfig(): RankingEngineConfig {

@@ -13,9 +13,9 @@ export function Badge({ children, variant = "default", className = "" }: BadgePr
   
   const variantStyles = {
     default: "bg-slate-50 border-slate-200 text-slate-700",
-    success: "bg-emerald-50 border-emerald-250 text-emerald-700",
-    warning: "bg-amber-50 border-amber-250 text-amber-800",
-    error: "bg-rose-50 border-rose-250 text-rose-700",
+    success: "bg-emerald-50 border-emerald-200 text-emerald-700",
+    warning: "bg-amber-50 border-amber-200 text-amber-800",
+    error: "bg-rose-50 border-rose-200 text-rose-700",
     info: "bg-blue-50 border-blue-200 text-blue-700",
   };
 

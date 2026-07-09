@@ -1,5 +1,7 @@
 "use client";
 
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { 
   Briefcase, 
   RefreshCw, 
@@ -7,7 +9,9 @@ import {
   StopCircle, 
   Globe, 
   Layers, 
-  MapPin 
+  MapPin,
+  Sliders,
+  Home
 } from "lucide-react";
 
 interface SidebarProps {
@@ -38,6 +42,13 @@ export function Sidebar({
     { name: "Indeed", icon: MapPin },
   ];
 
+  const pathname = usePathname();
+
+  const navPages = [
+    { href: '/', label: 'Dashboard', icon: Home },
+    { href: '/weights', label: 'Weight Config', icon: Sliders },
+  ];
+
   return (
     <aside className="w-60 bg-white border-r border-slate-200 flex flex-col h-screen sticky top-0 font-sans">
       {/* Brand Header */}
@@ -47,6 +58,30 @@ export function Sidebar({
           <h2 className="text-xs font-black tracking-tight text-slate-900 leading-none">RADAR EXECUTIVE</h2>
           <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Intelligence Workspace</p>
         </div>
+      </div>
+
+      {/* Global Navigation */}
+      <div className="px-3 py-3 border-b border-slate-100">
+        <span className="px-2 text-[9px] font-bold text-slate-400 uppercase tracking-wider">Navigate</span>
+        <nav className="mt-1.5 space-y-0.5">
+          {navPages.map(({ href, label, icon: Icon }) => {
+            const isActive = pathname === href;
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                  isActive
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5 opacity-80" />
+                {label}
+              </Link>
+            );
+          })}
+        </nav>
       </div>
 
       {/* Navigation Filter Section */}
@@ -64,7 +99,7 @@ export function Sidebar({
                   className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                     isActive
                       ? "bg-slate-900 text-white shadow-sm"
-                      : "text-slate-650 hover:bg-slate-50 hover:text-slate-900"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                   }`}
                 >
                   <div className="flex items-center gap-2">

@@ -122,10 +122,10 @@ export function AIActivityFeed({ logs }: AIActivityFeedProps) {
     <div className="flex flex-col h-full bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm font-sans">
       <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
         <h3 className="text-xs font-bold text-slate-800 flex items-center gap-2">
-          <Sparkles className="w-3.5 h-3.5 text-indigo-650" />
+          <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
           <span>AI Workspace Feed</span>
         </h3>
-        <span className="text-[9px] bg-slate-200 text-slate-650 font-bold px-1.5 py-0.5 rounded font-mono">
+        <span className="text-[9px] bg-slate-200 text-slate-600 font-bold px-1.5 py-0.5 rounded font-mono">
           LIVE
         </span>
       </div>
@@ -146,8 +146,8 @@ export function AIActivityFeed({ logs }: AIActivityFeedProps) {
             const badgeColors = {
               info: "bg-slate-50 border-slate-200 text-slate-500",
               success: "bg-emerald-50 border-emerald-200 text-emerald-600",
-              warning: "bg-amber-50 border-amber-250 text-amber-600 animate-pulse",
-              error: "bg-rose-50 border-rose-250 text-rose-600",
+              warning: "bg-amber-50 border-amber-200 text-amber-600 animate-pulse",
+              error: "bg-rose-50 border-rose-200 text-rose-600",
               discard: "bg-slate-50 border-slate-200 text-slate-400 line-through",
             };
 

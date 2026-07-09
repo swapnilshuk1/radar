@@ -679,17 +679,37 @@ export async function runScraper(logCallback: (msg: string) => void) {
             }) as any;
 
             if (existingJob) {
-              logCallback(`[Database] Job "${job.title}" already exists. Preserving record, updating scrapedAt timestamp.`);
-              try {
-                await prisma.discoveredJob.update({
-                  where: { url: job.url },
-                  data: { scrapedAt: new Date() }
-                });
-                savedCount++;
-              } catch (dbError: any) {
-                logCallback(`Failed to update timestamp for existing job: ${dbError.message}`);
+              // Existing job: check if we already have valid, up-to-date semantic data
+              const seConfig2 = getConfig().ranking_engine.semantic_enrichment;
+              let hasValidCache = false;
+              if (existingJob.semanticData) {
+                try {
+                  const cached = JSON.parse(existingJob.semanticData);
+                  if (
+                    cached._telemetry?.promptVersion ===
+                    (seConfig2?.prompt_version || VERSION_MANIFEST.promptVersion)
+                  ) {
+                    hasValidCache = true;
+                  }
+                } catch {}
               }
-              continue; // Skip ranking and LLM enrichment entirely
+
+              if (hasValidCache) {
+                logCallback(`[Database] Job "${job.title}" already exists with valid semantic cache. Skipping re-enrichment.`);
+                try {
+                  await prisma.discoveredJob.update({
+                    where: { url: job.url },
+                    data: { scrapedAt: new Date() }
+                  });
+                  savedCount++;
+                } catch (dbError: any) {
+                  logCallback(`Failed to update timestamp for existing job: ${dbError.message}`);
+                }
+                continue;
+              }
+
+              // Existing job but no valid cache — fall through to re-evaluate and update semantic data
+              logCallback(`[Database] Job "${job.title}" exists but semantic cache is stale/missing. Re-enriching...`);
             }
 
             Telemetry.startTimer(traceId, "normalizer");
@@ -744,22 +764,11 @@ export async function runScraper(logCallback: (msg: string) => void) {
                 seConfig.prompt_version || VERSION_MANIFEST.promptVersion
               );
 
-              // Staleness detection: check if existing job is matching this hash and has valid cached semanticData
-              // In scraper loop, existingJob is null (since we skipped already if existingJob exists).
-              // However, we check if we have any cached semanticData from a prior version or same job run.
+              // For re-enrichment of existing jobs: check if their existing data is already current
+              // (we land here only when hasValidCache is false, so existingJob.semanticData is stale).
+              // For new jobs existingJob is null, so we always call the LLM.
               let cacheHit = false;
               let semData: any = null;
-
-              if (existingJob?.semanticData) {
-                try {
-                  const cached = JSON.parse(existingJob.semanticData);
-                  if (cached._telemetry?.promptVersion === (seConfig.prompt_version || VERSION_MANIFEST.promptVersion)) {
-                    logCallback(`[Semantic Cache] Valid semantic cache found for "${job.title}". Skipping Gemini call.`);
-                    semData = cached;
-                    cacheHit = true;
-                  }
-                } catch {}
-              }
 
               if (!cacheHit) {
                 logCallback(`[Semantic] Job "${job.title}" base score ${ruleScore} >= ${seConfig.minimum_rule_score}. Calling OpportunityEnrichmentService...`);
@@ -832,7 +841,23 @@ export async function runScraper(logCallback: (msg: string) => void) {
 
               await prisma.discoveredJob.upsert({
                 where: { url: job.url },
-                update: { scrapedAt: new Date() },
+                update: {
+                  scrapedAt: new Date(),
+                  // Write back enriched scoring data if this was a re-enrichment pass
+                  ...(semanticDataJson !== null && {
+                    semanticData: semanticDataJson,
+                    matchScore: finalScore,
+                    rankingData: JSON.stringify(finalExplanation),
+                    rankingVersion: finalExplanation.version,
+                    rankingConfigVersion: finalExplanation.configVersion,
+                    jobHash: finalExplanation.jobHash ?? null,
+                    inputTokens,
+                    outputTokens,
+                    costUsd,
+                    latencyMs,
+                    modelName
+                  })
+                },
                 create: {
                   title: job.title,
                   company: job.company,
