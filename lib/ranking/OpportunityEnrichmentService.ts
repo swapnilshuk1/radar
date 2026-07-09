@@ -5,8 +5,30 @@
 import { EvaluationContext, FitVector, CandidateProfile } from './types';
 import { termMatchesTokens, normalize } from './Normalizer';
 import { DimensionRegistry } from './DimensionRegistry';
+import crypto from 'crypto';
+import { VERSION_MANIFEST } from './VersionManifest';
 
 export class OpportunityEnrichmentService {
+  /**
+   * Computes an LLM cache key for staleness detection (item 14).
+   * If the stored semanticData was generated with a different promptVersion,
+   * callers should invalidate and re-enrich.
+   */
+  static computeLLMCacheKey(
+    jobHash: string,
+    fitVector: FitVector,
+    promptVersion: string = VERSION_MANIFEST.promptVersion
+  ): string {
+    const fitHash = crypto.createHash('sha256')
+      .update(JSON.stringify(
+        Object.fromEntries(Object.entries(fitVector).map(([k, v]) => [k, v.score]))
+      ))
+      .digest('hex')
+      .slice(0, 16);
+    return crypto.createHash('sha256')
+      .update(`${jobHash}|${fitHash}|${promptVersion}`)
+      .digest('hex');
+  }
   /**
    * Compares the EvaluationContext and pre-computed FitVector to generate qualitative evidence tags and summaries.
    */
@@ -18,6 +40,14 @@ export class OpportunityEnrichmentService {
     strengths: string[];
     gaps: string[];
     reasoning: string[];
+    _telemetry?: {
+      model: string;
+      inputTokens: number;
+      outputTokens: number;
+      latencyMs: number;
+      costUsd: number;
+      promptVersion: string;
+    };
   }> {
     const apiKey = process.env.GEMINI_API_KEY;
     const modelName = "gemini-2.5-flash";
@@ -31,6 +61,7 @@ export class OpportunityEnrichmentService {
 
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+      const startMs = Date.now();
       const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -57,17 +88,33 @@ export class OpportunityEnrichmentService {
       }
 
       const resBody = await response.json();
+      const latencyMs = Date.now() - startMs;
       const text = resBody.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!text) {
         throw new Error("Empty response text from Gemini API");
       }
 
       const parsed = JSON.parse(text);
+
+      // --- Item 15: Cost Telemetry — extract token usage from Gemini response ---
+      const inputTokens: number  = resBody.usageMetadata?.promptTokenCount ?? 0;
+      const outputTokens: number = resBody.usageMetadata?.candidatesTokenCount ?? 0;
+      // Gemini 2.5 Flash pricing: ~$0.075/1M input + $0.30/1M output tokens
+      const costUsd = parseFloat(((inputTokens * 0.075 + outputTokens * 0.30) / 1_000_000).toFixed(6));
+
       return {
-        summary: parsed.summary || "No summary provided.",
+        summary:  parsed.summary   || "No summary provided.",
         strengths: parsed.strengths || [],
-        gaps: parsed.gaps || [],
-        reasoning: parsed.reasoning || []
+        gaps:      parsed.gaps      || [],
+        reasoning: parsed.reasoning || [],
+        _telemetry: {
+          model: modelName,
+          inputTokens,
+          outputTokens,
+          latencyMs,
+          costUsd,
+          promptVersion: VERSION_MANIFEST.promptVersion
+        }
       };
 
     } catch (err: any) {

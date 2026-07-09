@@ -4,7 +4,7 @@
 
 export interface TelemetryEvent {
   traceId: string;
-  stage: "scraper" | "normalizer" | "scoring" | "decision" | "evidence" | "briefings" | "database" | "overall";
+  stage: "scraper" | "normalizer" | "scoring" | "decision" | "evidence" | "briefings" | "database" | "overall" | "eval_cache";
   status: "SUCCESS" | "FAILED" | "INFO";
   durationMs?: number;
   message: string;

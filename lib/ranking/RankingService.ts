@@ -43,6 +43,17 @@ DimensionRegistry.register(new IndustryFitScorer());
 DimensionRegistry.register(new LocationScorer());
 DimensionRegistry.register(new CompanyResolver());
 
+// --- Item 13: In-process Evaluation Cache ---
+// Scoped to the Node.js process lifecycle. Invalidated on server restart or engine version bump.
+// Key = SHA-256( jobHash + profileVersion + engineVersion )
+const evalCache = new Map<string, RankingResult>();
+
+function computeEvalCacheKey(jobHash: string, profileVersion: string, engineVersion: string): string {
+  return crypto.createHash('sha256')
+    .update(`${jobHash}|${profileVersion}|${engineVersion}`)
+    .digest('hex');
+}
+
 export class RankingEngine {
   /**
    * Helper to check if a job matches title or content exclusions.
@@ -177,6 +188,18 @@ export class RankingEngine {
 
     Telemetry.stopTimer(activeTraceId, "normalizer", "SUCCESS", `Normalization complete: ${job.title}`);
 
+    // --- Evaluation Cache check (item 13) ---
+    const jobHashForCache = this.computeHash(normalizedJob);
+    const evalCacheKey = computeEvalCacheKey(
+      jobHashForCache,
+      resolvedProfile.resume?.sourceResumeVersion ?? 'unknown',
+      VERSION_MANIFEST.ruleEngine
+    );
+    if (evalCache.has(evalCacheKey)) {
+      Telemetry.log(activeTraceId, "eval_cache", "INFO", `Cache HIT: ${job.title}`, { cacheKey: evalCacheKey.slice(0, 12) });
+      return evalCache.get(evalCacheKey)!;
+    }
+
     Telemetry.startTimer(activeTraceId, "scoring");
     // 1. Compute Deterministic Fit Vector (measures timings automatically)
     const fitVector = DimensionRegistry.executeAll(context);
@@ -294,10 +317,14 @@ export class RankingEngine {
       `Evaluation complete for: ${job.title}`,
       { score: overallScore, verdict: decision.verdict, ruleId: decision.ruleId });
 
-    return {
+    const rankingResult: RankingResult = {
       rejected: false,
       explanation: legacyExplanation
     };
+
+    // Store in eval cache (item 13)
+    evalCache.set(evalCacheKey, rankingResult);
+    return rankingResult;
   }
 
   private static mapDimensionKeyToLabel(key: string): string {

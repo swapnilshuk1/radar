@@ -6,6 +6,7 @@ import { Telemetry } from './ranking/Telemetry';
 import { VERSION_MANIFEST } from './ranking/VersionManifest';
 import { getConfig, getCandidateProfile } from './ranking/config';
 import { OpportunityEnrichmentService } from './ranking/OpportunityEnrichmentService';
+import { normalize } from './ranking/Normalizer';
 import path from 'path';
 import fs from 'fs';
 
@@ -675,7 +676,7 @@ export async function runScraper(logCallback: (msg: string) => void) {
             // Check if job already exists by URL to avoid redundant ranking and LLM API costs
             const existingJob = await prisma.discoveredJob.findUnique({
               where: { url: job.url }
-            });
+            }) as any;
 
             if (existingJob) {
               logCallback(`[Database] Job "${job.title}" already exists. Preserving record, updating scrapedAt timestamp.`);
@@ -707,14 +708,16 @@ export async function runScraper(logCallback: (msg: string) => void) {
               continue;
             }
 
-            // Run initial rules-only evaluation to get base score and base explanation
-            const initResult = RankingEngine.evaluate({
+            const normalizedJob = normalize({
               title: job.title,
               snippet: job.snippet || '',
               location: job.location,
               company: job.company,
               semanticData: null
-            }, undefined, traceId);
+            });
+
+            // Run initial rules-only evaluation to get base score and base explanation
+            const initResult = RankingEngine.evaluate(normalizedJob, undefined, traceId);
 
             if (initResult.rejected) {
               logCallback(`[Filters] Rejected (rules evaluation failed): "${job.title}" — ${initResult.rejectReason}`);
@@ -728,38 +731,77 @@ export async function runScraper(logCallback: (msg: string) => void) {
             let semanticDataJson: string | null = null;
 
             // Check if job qualifies for semantic enrichment based on threshold in config
-            const config = getConfig();
-            const seConfig = config.ranking_engine.semantic_enrichment;
+            const scraperConfig = getConfig();
+            const seConfig = scraperConfig.ranking_engine.semantic_enrichment;
             const profile = getCandidateProfile();
 
             if (seConfig && seConfig.enabled && ruleScore >= seConfig.minimum_rule_score) {
-              logCallback(`[Semantic] Job "${job.title}" base score ${ruleScore} >= ${seConfig.minimum_rule_score}. Calling OpportunityEnrichmentService...`);
-              try {
-                const semData = await OpportunityEnrichmentService.enrich({
-                  title: job.title,
-                  snippet: job.snippet || '',
-                  location: job.location,
-                  company: job.company
-                }, profile);
+              const jobHashForLLM = initExplanation.jobHash ?? RankingEngine.computeHash(normalizedJob);
+              const fitVectorForLLM = initResult.explanation?.evalResult?.fitVector ?? {};
+              const currentLLMCacheKey = OpportunityEnrichmentService.computeLLMCacheKey(
+                jobHashForLLM,
+                fitVectorForLLM,
+                seConfig.prompt_version || VERSION_MANIFEST.promptVersion
+              );
 
-                semanticDataJson = JSON.stringify(semData);
+              // Staleness detection: check if existing job is matching this hash and has valid cached semanticData
+              // In scraper loop, existingJob is null (since we skipped already if existingJob exists).
+              // However, we check if we have any cached semanticData from a prior version or same job run.
+              let cacheHit = false;
+              let semData: any = null;
 
-                // Re-evaluate with semantic match included
-                const finalResult = RankingEngine.evaluate({
-                  title: job.title,
-                  snippet: job.snippet || '',
-                  location: job.location,
-                  company: job.company,
-                  semanticData: semData
-                }, profile, traceId);
+              if (existingJob?.semanticData) {
+                try {
+                  const cached = JSON.parse(existingJob.semanticData);
+                  if (cached._telemetry?.promptVersion === (seConfig.prompt_version || VERSION_MANIFEST.promptVersion)) {
+                    logCallback(`[Semantic Cache] Valid semantic cache found for "${job.title}". Skipping Gemini call.`);
+                    semData = cached;
+                    cacheHit = true;
+                  }
+                } catch {}
+              }
 
-                if (finalResult.explanation) {
-                  finalExplanation = finalResult.explanation;
-                  finalScore = finalExplanation.matchScore;
-                  logCallback(`[Semantic] Enrichment complete for "${job.title}". Final Score: ${finalScore} (Verdict: ${semData.executiveVerdict})`);
+              if (!cacheHit) {
+                logCallback(`[Semantic] Job "${job.title}" base score ${ruleScore} >= ${seConfig.minimum_rule_score}. Calling OpportunityEnrichmentService...`);
+                try {
+                  semData = await OpportunityEnrichmentService.enrich({
+                    title: job.title,
+                    snippet: job.snippet || '',
+                    location: job.location,
+                    company: job.company
+                  }, profile);
+                  
+                  // Inject the cache key and metadata into the semData payload
+                  if (semData) {
+                    semData._llmCacheKey = currentLLMCacheKey;
+                  }
+                  
+                  logCallback(`[Semantic] LLM call complete for "${job.title}". Input: ${semData._telemetry?.inputTokens ?? 0} tokens, Output: ${semData._telemetry?.outputTokens ?? 0} tokens, Cost: $${semData._telemetry?.costUsd ?? 0}`);
+                } catch (semErr: any) {
+                  logCallback(`[Semantic Error] Enrichment failed: ${semErr.message}`);
                 }
-              } catch (semErr: any) {
-                logCallback(`[Semantic Error] Enrichment failed: ${semErr.message}`);
+              }
+
+              if (semData) {
+                semanticDataJson = JSON.stringify(semData);
+                try {
+                  // Re-evaluate with semantic match included
+                  const finalResult = RankingEngine.evaluate({
+                    title: job.title,
+                    snippet: job.snippet || '',
+                    location: job.location,
+                    company: job.company,
+                    semanticData: semanticDataJson
+                  }, profile, traceId);
+
+                  if (finalResult.explanation) {
+                    finalExplanation = finalResult.explanation;
+                    finalScore = finalExplanation.matchScore;
+                    logCallback(`[Semantic] Enrichment complete for "${job.title}". Final Score: ${finalScore} (Verdict: ${semData.executiveVerdict || 'N/A'})`);
+                  }
+                } catch (evalErr: any) {
+                  logCallback(`[Semantic Evaluation Error] Re-evaluation failed: ${evalErr.message}`);
+                }
               }
             }
 
@@ -767,6 +809,27 @@ export async function runScraper(logCallback: (msg: string) => void) {
               // DATABASE UPSERT (Only update scrapedAt on duplicate to preserve status and rating)
               Telemetry.startTimer(traceId, "database");
               const normalizedUrl = job.url.split('?')[0].toLowerCase().trim();
+              
+              // Extract cost telemetry metadata from semanticDataJson if it exists
+              let inputTokens = null;
+              let outputTokens = null;
+              let costUsd = null;
+              let latencyMs = null;
+              let modelName = null;
+
+              if (semanticDataJson) {
+                try {
+                  const parsedSem = JSON.parse(semanticDataJson);
+                  if (parsedSem._telemetry) {
+                    inputTokens = parsedSem._telemetry.inputTokens ?? null;
+                    outputTokens = parsedSem._telemetry.outputTokens ?? null;
+                    costUsd = parsedSem._telemetry.costUsd ?? null;
+                    latencyMs = parsedSem._telemetry.latencyMs ?? null;
+                    modelName = parsedSem._telemetry.model ?? null;
+                  }
+                } catch {}
+              }
+
               await prisma.discoveredJob.upsert({
                 where: { url: job.url },
                 update: { scrapedAt: new Date() },
@@ -787,7 +850,12 @@ export async function runScraper(logCallback: (msg: string) => void) {
                   rejected: false,
                   versions: JSON.stringify(VERSION_MANIFEST),
                   status: 'New',
-                  scrapedAt: new Date()
+                  scrapedAt: new Date(),
+                  inputTokens,
+                  outputTokens,
+                  costUsd,
+                  latencyMs,
+                  modelName
                 }
               });
               Telemetry.stopTimer(traceId, "database", "SUCCESS",

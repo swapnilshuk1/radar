@@ -3,7 +3,7 @@
 // Implements self-healing scan to extract location keywords from description if raw location is missing.
 
 import { Evaluator, EvaluationContext, EvaluationDimension, MatchEvidence } from '../types';
-import { termMatchesTokens } from '../Normalizer';
+import { termMatchesTokens, tokenize } from '../Normalizer';
 
 export class LocationScorer implements Evaluator {
   readonly dimensionName = 'locationFit'; // UI Label: "Location Preference"
@@ -11,7 +11,7 @@ export class LocationScorer implements Evaluator {
   score(context: EvaluationContext): EvaluationDimension {
     const job = context.job;
     const profile = context.candidate;
-    const locationTokens = job.locationNorm.toLowerCase().split(/\s+/);
+    const locationTokens = tokenize(job.locationNorm);
     const allTokens = [...job.titleTokens, ...job.snippetTokens];
 
     const matched: MatchEvidence[] = [];
@@ -24,7 +24,8 @@ export class LocationScorer implements Evaluator {
     // 1. Direct Location match check (from structured location data)
     if (job.locationNorm && job.locationNorm.trim() !== '') {
       for (const loc of preferredLocations) {
-        if (termMatchesTokens(loc, locationTokens)) {
+        // locationTokens are already lowercased. Lowercase loc when calling termMatchesTokens.
+        if (termMatchesTokens(loc.toLowerCase(), locationTokens)) {
           score = 100;
           explanation = `Location matches your preference: "${loc}".`;
           matched.push({

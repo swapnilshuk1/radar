@@ -86,7 +86,7 @@ function normalizeCompany(company: string): string {
   return lower;
 }
 
-function tokenize(text: string): string[] {
+export function tokenize(text: string): string[] {
   return stripPunctuation(text)
     .toLowerCase()
     .split(/\s+/)

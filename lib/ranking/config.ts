@@ -5,6 +5,7 @@
 import fs from 'fs';
 import path from 'path';
 import { CandidateProfile } from './types';
+import { ConfigValidator } from './ConfigValidator';
 
 export interface RankingEngineConfig {
   version: string;
@@ -95,7 +96,9 @@ export function getConfig(): FullConfig {
 }
 
 export function getRankingConfig(): RankingEngineConfig {
-  return getConfig().ranking_engine;
+  const cfg = getConfig().ranking_engine;
+  ConfigValidator.validate(cfg); // Fail-fast validation on first call (cached config re-validates only once)
+  return cfg;
 }
 
 /**
