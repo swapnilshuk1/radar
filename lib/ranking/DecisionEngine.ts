@@ -23,8 +23,8 @@ export class DecisionEngine {
     const careerScore = fitVector.careerProgressionFit?.score ?? 0;
     const companyScore = fitVector.companyHealth?.score ?? 0;
 
-    // Rule 1: High Seniority & Scale Match (Apply Immediately)
-    if (titleScore >= 80 && leadershipScore >= 70 && functionalScore >= 80 && locationScore >= 80) {
+    // Rule 1: Premium Executive Target & Location Match (Apply Immediately)
+    if (titleScore >= 90 && leadershipScore >= 70 && functionalScore >= 80 && locationScore >= 80) {
       return {
         ruleId: "EXEC_001_IMMEDIATE",
         verdict: VerdictEnum.STRONG_CANDIDATE,
@@ -33,42 +33,40 @@ export class DecisionEngine {
       };
     }
 
-    // Rule 2: Strong Skills alignment but Location/Travel mismatch (Network First)
-    if (titleScore >= 65 && functionalScore >= 70) {
-      const reasons = ["SENIORITY_MATCH", "FUNCTIONAL_ALIGNMENT"];
-      
-      if (locationScore < 80) {
-        reasons.push("LOCATION_MISMATCH");
-        return {
-          ruleId: "EXEC_002_NETWORK_LOC_MISMATCH",
-          verdict: VerdictEnum.WORTH_REVIEWING,
-          recommendation: RecommendationEnum.NETWORK_FIRST,
-          reasons
-        };
-      }
-
+    // Rule 2: Strong Executive Match (Apply This Week)
+    if (titleScore >= 80 && leadershipScore >= 70 && functionalScore >= 70 && locationScore >= 80) {
       return {
-        ruleId: "EXEC_003_NETWORK_ALIGNMENT",
+        ruleId: "EXEC_002_STRONG_MATCH",
         verdict: VerdictEnum.STRONG_CANDIDATE,
         recommendation: RecommendationEnum.NETWORK_FIRST,
-        reasons
+        reasons: ["SENIORITY_MATCH", "FUNCTIONAL_ALIGNMENT", "LOCATION_ALIGNMENT"]
       };
     }
 
-    // Rule 3: Growth opportunity to monitor
+    // Rule 3: High Match but Location Mismatch (Monitor Closely)
+    if (titleScore >= 65 && functionalScore >= 70 && leadershipScore >= 70 && locationScore < 80) {
+      return {
+        ruleId: "EXEC_003_LOC_MISMATCH",
+        verdict: VerdictEnum.WORTH_REVIEWING,
+        recommendation: RecommendationEnum.MONITOR,
+        reasons: ["SENIORITY_MATCH", "FUNCTIONAL_ALIGNMENT", "LOCATION_MISMATCH"]
+      };
+    }
+
+    // Rule 4: General Functional Growth to Explore
     if (functionalScore >= 50 && careerScore >= 50) {
       const reasons = ["FUNCTIONAL_OVERLAP"];
       if (companyScore < 60) reasons.push("VERIFY_COMPANY_HEALTH");
 
       return {
-        ruleId: "EXEC_004_MONITOR_GROWTH",
+        ruleId: "EXEC_004_EXPLORE_CONTEXT",
         verdict: VerdictEnum.WORTH_MONITORING,
-        recommendation: RecommendationEnum.MONITOR,
+        recommendation: RecommendationEnum.IGNORE,
         reasons
       };
     }
 
-    // Baseline: Ignore / Skip
+    // Baseline: Skip / Ignore
     return {
       ruleId: "EXEC_005_SKIP",
       verdict: VerdictEnum.LIMITED_ALIGNMENT,

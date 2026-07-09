@@ -1,6 +1,6 @@
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -16,10 +16,22 @@ model DiscoveredJob {
   url                 String    @unique
   snippet             String
   matchScore          Int
-  rankingData         String?   // JSON-serialised RankingExplanation (v2)
-  rankingVersion      String?   // "v2" or "v2.1"
-  rankingConfigVersion String?  // config version tag
-  semanticData        String?   // Cached JSON: { overallScore, confidence, summary, strengths[], gaps[], matchedSkills[], missingSkills[], recommendedAction, reasoning[], executiveVerdict, semanticVersion, sourceResumeVersion, evaluatedAt }
+  rankingData         String?   // JSON-serialised RankingExplanation
+  rankingVersion      String?
+  rankingConfigVersion String?
+  semanticData        String?   // Cached JSON: { overallScore, confidence, summary, strengths[], gaps[] }
   status              String    @default("New") // "New", "Reviewed", "Archived"
   scrapedAt           DateTime  @default(now())
+
+  // Telemetry, Caching & Prompt Versioning Columns (V4.0)
+  jobHash             String?
+  promptVersion       String?
+  modelName           String?
+  temperature         Float?
+  inputTokens         Int?
+  outputTokens        Int?
+  latencyMs           Int?
+  costUsd             Float?
+
+  @@index([jobHash])
 }

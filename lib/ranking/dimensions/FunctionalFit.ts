@@ -17,55 +17,91 @@ export class FunctionalFitScorer implements Evaluator {
     const matched: MatchEvidence[] = [];
     const missing: MatchEvidence[] = [];
     
-    // Core requirements from Candidate Profile
-    const candidateSkills = profile.skills || [];
+    const candidateSkills = (profile.skills || []).map(s => s.toLowerCase());
     
-    let baseScore = 60; // Starting baseline
-    const matchedClusters = new Set<string>();
+    // Extracted target functional skills and tech from the job listing
+    const jobSkills = [...job.skills, ...job.technologies];
+    const jobFunctions = job.functions || [];
 
-    for (const skill of candidateSkills) {
-      const expanded = SkillGraphService.resolve(skill);
-      let foundTerm: string | null = null;
+    let score = 85; // Starting high baseline
 
-      for (const term of expanded) {
-        if (termMatchesTokens(term, allTokens)) {
-          foundTerm = term;
-          break;
+    if (jobSkills.length > 0) {
+      let matchCount = 0;
+      let missCount = 0;
+
+      for (const skill of jobSkills) {
+        // Resolve synonyms/clusters for the skill
+        const synonyms = SkillGraphService.resolve(skill).map(s => s.toLowerCase());
+        const hasSkill = synonyms.some(syn => 
+          candidateSkills.includes(syn) || 
+          (profile.resume?.rawText && profile.resume.rawText.toLowerCase().includes(syn))
+        );
+
+        if (hasSkill) {
+          matchCount++;
+          matched.push({
+            id: `func_match_${skill.toLowerCase().replace(/\s+/g, '_')}`,
+            label: `${skill} (matched)`,
+            source: "resume",
+            confidence: 0.95,
+            weight: 10
+          });
+        } else {
+          missCount++;
+          missing.push({
+            id: `func_miss_${skill.toLowerCase().replace(/\s+/g, '_')}`,
+            label: skill,
+            source: "resume",
+            confidence: 0.8,
+            weight: 10
+          });
         }
       }
 
-      if (foundTerm) {
-        matchedClusters.add(skill.toLowerCase());
-        baseScore += 8; // Gained points for positive match
+      // Calculate score based on ratio of matched required skills
+      const matchRatio = matchCount / jobSkills.length;
+      score = Math.round(matchRatio * 100);
+
+      // Give partial credit if functional keywords match target titles
+      if (score < 70 && jobFunctions.some(f => profile.strategy?.targetTitles?.some(t => t.toLowerCase().includes(f)))) {
+        score += 15;
+      }
+    } else {
+      // If no explicit skills are extracted, evaluate based on general functional keywords matching target titles
+      const matchesTargetFunction = jobFunctions.some(f => 
+        profile.strategy?.targetTitles?.some(t => t.toLowerCase().includes(f))
+      );
+      score = matchesTargetFunction ? 90 : 50;
+
+      if (matchesTargetFunction) {
         matched.push({
-          id: `func_match_${skill.toLowerCase().replace(/\s+/g, '_')}`,
-          label: `${skill} (matched via: "${foundTerm}")`,
+          id: "func_match_functional_role",
+          label: `Aligned with target executive function: ${jobFunctions.slice(0, 2).join(', ')}`,
           source: "resume",
-          confidence: 0.95,
-          weight: 8
+          confidence: 0.85,
+          weight: 20
         });
       } else {
-        baseScore -= 6; // Lost points for missing expected skill
         missing.push({
-          id: `func_miss_${skill.toLowerCase().replace(/\s+/g, '_')}`,
-          label: skill,
+          id: "func_miss_functional_role",
+          label: "No matching target executive functions found in snippet",
           source: "resume",
-          confidence: 0.8,
-          weight: 6
+          confidence: 0.7,
+          weight: 20
         });
       }
     }
 
     // Bind score constraints between 0 and 100
-    const score = Math.min(Math.max(baseScore, 0), 100);
+    score = Math.min(Math.max(score, 0), 100);
 
     return {
       score,
       confidence: allTokens.length > 50 ? 0.95 : 0.6,
       matched: matched.slice(0, 5),
       missing: missing.slice(0, 5),
-      explanation: matchedClusters.size > 0
-        ? `Matched functional competencies: ${Array.from(matchedClusters).slice(0, 2).join(', ')}. Gaps penalize overall scoring.`
+      explanation: matched.length > 0
+        ? `Matched functional competencies: ${matched.map(m => m.label.replace(' (matched)', '')).slice(0, 2).join(', ')}.`
         : 'Limited functional skill matches identified. Expected competencies were missing.'
     };
   }

@@ -3,6 +3,7 @@
 
 import { 
   JobInput, 
+  NormalizedJob,
   CandidateProfile, 
   RankingResult, 
   EvaluationContext, 
@@ -13,12 +14,14 @@ import {
   VerdictEnum
 } from './types';
 
+import crypto from 'crypto';
 import { normalize } from './Normalizer';
 import { getConfig, getCandidateProfile, getRankingConfig } from './config';
 import { DimensionRegistry } from './DimensionRegistry';
 import { DecisionEngine } from './DecisionEngine';
 import { OpportunityEnrichmentService } from './OpportunityEnrichmentService';
 import { IntelligenceEngine } from './IntelligenceEngine';
+import { Telemetry } from './Telemetry';
 
 // Import Evaluator Scorers
 import { TitleFitScorer } from './dimensions/TitleFit';
@@ -41,6 +44,40 @@ DimensionRegistry.register(new CompanyResolver());
 
 export class RankingEngine {
   /**
+   * Helper to check if a job matches title or content exclusions.
+   */
+  public static isExcluded(job: NormalizedJob, config: any): boolean {
+    const titleLower = job.title.toLowerCase();
+    const snippetLower = job.snippet.toLowerCase();
+
+    // Check title exclusions
+    const excludeTitles = config?.hard_filters?.exclude_titles || [];
+    for (const term of excludeTitles) {
+      if (titleLower.includes(term.toLowerCase())) {
+        return true;
+      }
+    }
+
+    // Check content exclusions
+    const excludeContent = config?.hard_filters?.exclude_content || [];
+    for (const term of excludeContent) {
+      if (snippetLower.includes(term.toLowerCase())) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Compute a secure SHA-256 hash of the normalized job parameters (Title + Snippet + Company).
+   */
+  public static computeHash(job: NormalizedJob): string {
+    const rawString = `${job.title}||${job.snippet}||${job.company}`.toLowerCase().trim();
+    return crypto.createHash('sha256').update(rawString).digest('hex');
+  }
+
+  /**
    * Helper to calculate expected fields coverage score.
    */
   private static calculateCoverage(job: any): number {
@@ -57,6 +94,9 @@ export class RankingEngine {
    * Uses configurable weights from config or local defaults.
    */
   public static evaluateRulesOnly(job: Omit<JobInput, 'semanticData'>, profile?: CandidateProfile): number {
+    const telemetryKey = `${job.title}-${Date.now()}`;
+    Telemetry.startTimer(telemetryKey);
+
     const resolvedProfile = profile ?? getCandidateProfile();
     const normalizedJob = normalize({ ...job, semanticData: null });
 
@@ -66,8 +106,16 @@ export class RankingEngine {
       config: getRankingConfig()
     };
 
+    if (this.isExcluded(normalizedJob, context.config)) {
+      Telemetry.stopTimer(telemetryKey, "normalization", "FAILED", { reason: "Exclusion matched", title: job.title });
+      return 0;
+    }
+
     const fitVector = DimensionRegistry.executeAll(context);
-    return this.computeWeightedScore(fitVector);
+    const score = this.computeWeightedScore(fitVector);
+
+    Telemetry.stopTimer(telemetryKey, "normalization", "SUCCESS", { score, title: job.title });
+    return score;
   }
 
   /**
@@ -102,6 +150,9 @@ export class RankingEngine {
    * Consumes cached semanticData from SQLite if available.
    */
   public static evaluate(job: JobInput, profile?: CandidateProfile): RankingResult {
+    const telemetryKey = `${job.title}-${Date.now()}`;
+    Telemetry.startTimer(telemetryKey);
+
     const resolvedProfile = profile ?? getCandidateProfile();
     const normalizedJob = normalize(job);
 
@@ -110,6 +161,15 @@ export class RankingEngine {
       candidate: resolvedProfile,
       config: getRankingConfig()
     };
+
+    // Check hard filters
+    if (this.isExcluded(normalizedJob, context.config)) {
+      Telemetry.stopTimer(telemetryKey, "normalization", "FAILED", { reason: "Exclusion matched", title: job.title });
+      return {
+        rejected: true,
+        rejectReason: "Exclusions matched"
+      };
+    }
 
     // 1. Compute Deterministic Fit Vector (measures timings automatically)
     const fitVector = DimensionRegistry.executeAll(context);
@@ -157,6 +217,7 @@ export class RankingEngine {
 
     // 5. Compile the BriefingBundle via IntelligenceEngine
     const briefingBundle = IntelligenceEngine.getBriefings(context, fitVector);
+    const jobHash = this.computeHash(normalizedJob);
 
     // Build the consolidated V3.1 EvaluationResult payload
     const evalResult: EvaluationResult = {
@@ -169,6 +230,7 @@ export class RankingEngine {
       ruleId: decision.ruleId,
       overallConfidence,
       scoreCoverage,
+      jobHash,
       briefingBundle,
       evidence: parsedEvidence,
       metadata: {
@@ -183,6 +245,7 @@ export class RankingEngine {
       configVersion: "agg-v2.1",
       matchScore: overallScore,
       priority: this.mapRecommendationToLegacyPriority(decision.recommendation),
+      jobHash,
       confidence: {
         level: overallConfidence >= 0.8 ? "HIGH" : overallConfidence >= 0.5 ? "MEDIUM" : "LOW",
         score: overallConfidence,
@@ -207,6 +270,13 @@ export class RankingEngine {
       missingSignals: fitVector.functionalFit?.missing.map(m => m.label) || [],
       evalResult
     };
+
+    Telemetry.stopTimer(telemetryKey, "overall", "SUCCESS", { 
+      score: overallScore, 
+      verdict: decision.verdict, 
+      ruleId: decision.ruleId,
+      title: job.title 
+    });
 
     return {
       rejected: false,

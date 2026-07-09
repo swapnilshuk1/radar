@@ -130,6 +130,7 @@ export interface EvaluationResult {
   ruleId: string; // Fired Decision rule ID
   overallConfidence: number;
   scoreCoverage: number; // Coverage % of expected fields filled
+  jobHash?: string; // Standardized V4.0 cache hash
   briefingBundle?: BriefingBundle; // Compilations from the Intelligence Engine
   evidence: {
     summary: string;
@@ -261,4 +262,27 @@ export interface BriefingPlugin {
   readonly title: string;
   build(context: EvaluationContext, fitVector: FitVector): Briefing;
 }
+
+export interface ExperienceItem {
+  title: string;
+  company: string;
+  duration: string;
+  description: string;
+}
+
+export interface EducationItem {
+  degree: string;
+  institution: string;
+  year: string;
+}
+
+export interface ResumeAST {
+  experience: ExperienceItem[];
+  education: EducationItem[];
+  skills: string[];
+  achievements: string[];
+  leadershipSignals: string[];
+  certifications: string[];
+}
+
 

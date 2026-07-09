@@ -100,8 +100,21 @@ export class SeniorityFitScorer implements Evaluator {
       });
     }
 
-    // Final Score: percentage of matched structural indicators
-    const score = Math.round((matchedCount / 4) * 100);
+    // 5. Seniority Level Comparison (V4.0 Core Match)
+    let seniorityScore = 50; // Baseline
+    if (job.seniority === 'svp') {
+      seniorityScore = 90; // Step up target
+    } else if (job.seniority === 'vp') {
+      seniorityScore = 95; // Lateral match
+    } else if (job.seniority === 'director') {
+      seniorityScore = 80; // Slightly junior but strong management scope
+    } else if (job.seniority === 'mid') {
+      seniorityScore = 30; // Mismatch
+    }
+
+    // Final Score: Combine seniority hierarchy base and structural indicator bonuses
+    const indicatorBonus = matchedCount * 5; // e.g. up to +20 points for P&L, Board, Team scale, Authority details
+    const score = Math.min(Math.max(seniorityScore + indicatorBonus, 0), 100);
 
     return {
       score,
@@ -109,8 +122,8 @@ export class SeniorityFitScorer implements Evaluator {
       matched,
       missing,
       explanation: matchedCount > 0 
-        ? `Matched leadership parameters: ${details.join(', ')}.` 
-        : 'Limited executive leadership signals detected.'
+        ? `Matched leadership seniority: ${job.seniority.toUpperCase()} level with indicators: ${details.join(', ')}.` 
+        : `Matched leadership seniority: ${job.seniority.toUpperCase()} level.`
     };
   }
 }

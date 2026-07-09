@@ -20,7 +20,7 @@
     ]
   },
   "preferences": {
-    "locations": ["Gurugram", "Delhi NCR", "Mumbai", "Bengaluru", "Pune", "India", "APAC"],
+    "locations": ["Gurugram", "Delhi NCR", "Bengaluru", "Pune", "India", "APAC"],
     "remote": "Hybrid / Flexible",
     "targetMinSalary": "₹1.5 Cr",
     "industries": ["Automotive", "Healthcare", "Consumer", "Agency", "Technology"]
