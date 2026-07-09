@@ -34,6 +34,7 @@ model DiscoveredJob {
   latencyMs           Int?
   costUsd             Float?
   rejected            Boolean   @default(false) // Explicit rejected flag
+  versions            String?   // JSON-serialised VersionManifest snapshot (item 8)
 
   @@index([jobHash])
   @@index([scrapedAt])

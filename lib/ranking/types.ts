@@ -91,6 +91,19 @@ export type PriorityTier =
   | 'Possible Match'
   | 'Low Priority';
 
+// Normalization confidence metadata (item 7)
+export interface FieldConfidence {
+  value: string;
+  confidence: number;   // 0.0 – 1.0
+  source: "structured" | "freetext" | "inferred";
+}
+
+export interface NormalizationMeta {
+  location: FieldConfidence;
+  company:  FieldConfidence;
+  seniority: FieldConfidence;
+}
+
 export interface NormalizedJob {
   title: string;
   snippet: string;
@@ -112,6 +125,7 @@ export interface NormalizedJob {
   locations: string[];
   employmentType: string;
   travelRequirement: string;
+  normMeta?: NormalizationMeta; // Normalization confidence per field (item 7)
 }
 
 export interface EvaluationContext {
@@ -140,6 +154,7 @@ export interface EvaluationResult {
   };
   metadata: {
     evaluatedAt: string;
+    versions?: Record<string, string>; // VersionManifest snapshot
   };
 }
 
@@ -208,6 +223,7 @@ export interface RankingExplanation {
   matchScore: number;
   priority: PriorityTier;
   jobHash?: string;
+  versions?: Record<string, string>; // Decision Versioning (item 8)
   confidence: ConfidenceResult;
   breakdown: RankingDimension[];
   insights: OpportunityInsights;

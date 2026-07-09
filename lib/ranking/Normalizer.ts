@@ -2,7 +2,7 @@
 // Preprocessing and Entity Extraction stage: normalizes raw job input.
 // Extracts and builds the strongly-typed NormalizedJob entity structure.
 
-import { JobInput, NormalizedJob } from './types';
+import { JobInput, NormalizedJob, NormalizationMeta } from './types';
 
 const ABBREVIATIONS: Record<string, string> = {
   'vp': 'vice president',
@@ -150,6 +150,34 @@ export function normalize(raw: JobInput): NormalizedJob {
   const employmentType = allText.includes('contract') ? 'Contract' : allText.includes('part time') ? 'Part-time' : 'Full-time';
   const travelRequirement = allText.includes('travel') ? 'Travel Required' : 'None';
 
+  // --- Normalization Confidence (item 7) ---
+  // Determine confidence and source for each extracted field.
+
+  const locationRaw = (raw.location || '').trim();
+  const locationNorm = normalizeLocation(locationRaw);
+  const locationChanged = locationNorm !== locationRaw.toLowerCase();
+  // If location was empty, it had to be inferred from snippet
+  const locationSource = locationRaw === ''
+    ? 'freetext'
+    : locationChanged ? 'structured' : 'structured';
+  const locationConfidence = locationRaw === '' ? 0.45 : locationChanged ? 0.88 : 0.96;
+
+  const companyRaw = (raw.company || '').trim();
+  const companyNorm = normalizeCompany(companyRaw);
+  const companyChanged = companyNorm !== companyRaw.toLowerCase();
+  const companySource: 'structured' | 'inferred' = companyRaw === '' ? 'inferred' : 'structured';
+  const companyConfidence = companyRaw === '' ? 0.30 : companyChanged ? 0.85 : 0.97;
+
+  const seniorityFromTitle = seniority !== 'mid';
+  const senioritySource: 'structured' | 'inferred' = seniorityFromTitle ? 'structured' : 'inferred';
+  const seniorityConfidence = seniorityFromTitle ? 0.92 : 0.40;
+
+  const normMeta: NormalizationMeta = {
+    location: { value: locationNorm, confidence: locationConfidence, source: locationSource },
+    company:  { value: companyNorm,  confidence: companyConfidence,  source: companySource },
+    seniority: { value: seniority,   confidence: seniorityConfidence, source: senioritySource },
+  };
+
   return {
     title: titleNorm,
     snippet: snippetNorm,
@@ -157,8 +185,8 @@ export function normalize(raw: JobInput): NormalizedJob {
     company: raw.company,
     titleTokens,
     snippetTokens,
-    locationNorm: normalizeLocation(raw.location),
-    companyNorm: normalizeCompany(raw.company),
+    locationNorm,
+    companyNorm,
     semanticData: raw.semanticData,
     seniority,
     functions,
@@ -167,8 +195,9 @@ export function normalize(raw: JobInput): NormalizedJob {
     industries,
     leadershipSignals,
     companyAttributes,
-    locations: [normalizeLocation(raw.location)],
+    locations: [locationNorm],
     employmentType,
-    travelRequirement
+    travelRequirement,
+    normMeta,
   };
 }

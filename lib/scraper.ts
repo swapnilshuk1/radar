@@ -3,6 +3,7 @@ import stealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { prisma } from './db';
 import { RankingEngine } from './ranking/RankingService';
 import { Telemetry } from './ranking/Telemetry';
+import { VERSION_MANIFEST } from './ranking/VersionManifest';
 import { getConfig, getCandidateProfile } from './ranking/config';
 import { OpportunityEnrichmentService } from './ranking/OpportunityEnrichmentService';
 import path from 'path';
@@ -784,6 +785,7 @@ export async function runScraper(logCallback: (msg: string) => void) {
                   semanticData: semanticDataJson,
                   jobHash: finalExplanation.jobHash ?? null,
                   rejected: false,
+                  versions: JSON.stringify(VERSION_MANIFEST),
                   status: 'New',
                   scrapedAt: new Date()
                 }

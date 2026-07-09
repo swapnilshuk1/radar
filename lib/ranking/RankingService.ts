@@ -22,6 +22,7 @@ import { DecisionEngine } from './DecisionEngine';
 import { OpportunityEnrichmentService } from './OpportunityEnrichmentService';
 import { IntelligenceEngine } from './IntelligenceEngine';
 import { Telemetry } from './Telemetry';
+import { VERSION_MANIFEST } from './VersionManifest';
 
 // Import Evaluator Scorers
 import { TitleFitScorer } from './dimensions/TitleFit';
@@ -250,7 +251,8 @@ export class RankingEngine {
       briefingBundle,
       evidence: parsedEvidence,
       metadata: {
-        evaluatedAt: new Date().toISOString()
+        evaluatedAt: new Date().toISOString(),
+        versions: { ...VERSION_MANIFEST }
       }
     };
 
@@ -262,6 +264,7 @@ export class RankingEngine {
       matchScore: overallScore,
       priority: this.mapRecommendationToLegacyPriority(decision.recommendation),
       jobHash,
+      versions: { ...VERSION_MANIFEST },
       confidence: {
         level: overallConfidence >= 0.8 ? "HIGH" : overallConfidence >= 0.5 ? "MEDIUM" : "LOW",
         score: overallConfidence,

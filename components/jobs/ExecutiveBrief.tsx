@@ -222,6 +222,29 @@ export function ExecutiveBrief({ job, briefingBundle, onUpdateStatus }: Executiv
           </div>
         </div>
 
+        {/* Decision Quality row — Confidence + Coverage */}
+        {explanation && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800/60 border border-slate-700/50">
+              <ShieldCheck className="w-2.5 h-2.5 text-slate-400" />
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Confidence</span>
+              <span className={`text-[9px] font-extrabold uppercase tracking-wider ml-0.5 ${
+                confidenceLevel === 'HIGH'   ? 'text-emerald-400' :
+                confidenceLevel === 'MEDIUM' ? 'text-amber-400'   : 'text-slate-400'
+              }`}>{confidenceLevel}</span>
+            </div>
+            {explanation.evalResult?.scoreCoverage !== undefined && (
+              <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800/60 border border-slate-700/50">
+                <LineChart className="w-2.5 h-2.5 text-slate-400" />
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Coverage</span>
+                <span className="text-[9px] font-extrabold text-blue-400 ml-0.5">
+                  {Math.round((explanation.evalResult.scoreCoverage) * 100)}%
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
         <div>
           <h3 className="text-base font-extrabold text-white leading-snug tracking-tight">
             {job.title}
