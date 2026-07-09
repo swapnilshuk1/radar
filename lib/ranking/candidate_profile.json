@@ -1,0 +1,62 @@
+{
+  "identity": {
+    "name": "Swapnil Shukla",
+    "currentTitle": "VP Marketing / Performance CoE Lead"
+  },
+  "experience": {
+    "yearsExperience": 20,
+    "teamSizeManaged": 40,
+    "feeBookScale": "$8M",
+    "plOwnership": true,
+    "boardInteraction": true,
+    "achievements": [
+      "Overseeing an $8M pure agency fee book for Ford and a projected ₹36 Cr 3-year service retainer for BMW.",
+      "Recruited and managed a 40-member cross-functional Performance Marketing Center of Excellence (GCC).",
+      "Led a complex legacy-to-Salesforce CRM migration across APAC and Middle East regions within 12 months.",
+      "Established a Digital Analytics & Experimentation Lab, enabling faster optimization.",
+      "Redesigned customer journeys, resulting in $14M in attributed additional revenue.",
+      "Grew Ford's digital revenue contribution from 3% to over 32% in five years.",
+      "Generated 400,000+ additional organic qualified leads leveraging AI and NLP at TVS Motor Company."
+    ]
+  },
+  "preferences": {
+    "locations": ["Gurugram", "Delhi NCR", "Mumbai", "Bengaluru", "Pune", "India", "APAC"],
+    "remote": "Hybrid / Flexible",
+    "targetMinSalary": "₹1.5 Cr",
+    "industries": ["Automotive", "Healthcare", "Consumer", "Agency", "Technology"]
+  },
+  "strategy": {
+    "targetTitles": [
+      "Senior Vice President",
+      "SVP Marketing",
+      "VP Marketing",
+      "Chief Marketing Officer",
+      "CMO",
+      "Chief Growth Officer",
+      "Head of Digital Transformation",
+      "VP MarTech",
+      "Marketing Director APAC",
+      "Head of Global Capability Center",
+      "Head of CRM"
+    ],
+    "ceoPathway": true,
+    "boardReadiness": true
+  },
+  "resume": {
+    "rawText": "Swapnil Shukla - VP Marketing, Performance COE. 20 years experience scaling commercial growth, Salesforce CRM migrations, and managing $8M Ford fee book.",
+    "sourceResumeVersion": "3.1.2"
+  },
+  "skills": [
+    "Salesforce CDP",
+    "Adobe Experience Cloud",
+    "CRM Migration",
+    "Full-Funnel Acquisition",
+    "ROAS Optimization",
+    "Conversion Strategy",
+    "O2O Attribution",
+    "A/B Testing",
+    "GenAI Automation",
+    "P&L Management",
+    "GCC Scaling"
+  ]
+}

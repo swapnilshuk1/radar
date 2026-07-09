@@ -1,0 +1,25 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model DiscoveredJob {
+  id                  String    @id @default(uuid())
+  title               String
+  company             String
+  location            String
+  sourcePortal        String
+  url                 String    @unique
+  snippet             String
+  matchScore          Int
+  rankingData         String?   // JSON-serialised RankingExplanation (v2)
+  rankingVersion      String?   // "v2" or "v2.1"
+  rankingConfigVersion String?  // config version tag
+  semanticData        String?   // Cached JSON: { overallScore, confidence, summary, strengths[], gaps[], matchedSkills[], missingSkills[], recommendedAction, reasoning[], executiveVerdict, semanticVersion, sourceResumeVersion, evaluatedAt }
+  status              String    @default("New") // "New", "Reviewed", "Archived"
+  scrapedAt           DateTime  @default(now())
+}
