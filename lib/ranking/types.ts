@@ -130,6 +130,7 @@ export interface EvaluationResult {
   ruleId: string; // Fired Decision rule ID
   overallConfidence: number;
   scoreCoverage: number; // Coverage % of expected fields filled
+  briefingBundle?: BriefingBundle; // Compilations from the Intelligence Engine
   evidence: {
     summary: string;
     strengths: string[];
@@ -218,3 +219,46 @@ export interface RankingResult {
   rejectReason?: string;
   explanation?: RankingExplanation;
 }
+
+export interface DataSource {
+  name: string;
+  type: "job_listing" | "candidate_profile" | "database_history" | "external_api";
+  confidence: "HIGH" | "MEDIUM" | "LOW";
+  timestamp: string;
+}
+
+export type SectionType = 
+  | "narrative" 
+  | "checklist" 
+  | "metric_grid" 
+  | "tag_list" 
+  | "timeline" 
+  | "risk" 
+  | "recommendation";
+
+export interface BriefingSection {
+  id: string;
+  title: string;
+  type: SectionType;
+  content: string | string[] | Record<string, number | string>;
+}
+
+export interface Briefing {
+  title: string;
+  status: "unlocked" | "partial" | "locked";
+  confidence: "HIGH" | "MEDIUM" | "LOW";
+  trustBasis: string;
+  sources: DataSource[];
+  sections: BriefingSection[];
+  lastEvaluated: string;
+  expiresAt: string;
+}
+
+export type BriefingBundle = Record<string, Briefing>;
+
+export interface BriefingPlugin {
+  readonly pluginKey: string;
+  readonly title: string;
+  build(context: EvaluationContext, fitVector: FitVector): Briefing;
+}
+

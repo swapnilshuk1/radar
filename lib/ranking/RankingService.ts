@@ -18,6 +18,7 @@ import { getConfig, getCandidateProfile, getRankingConfig } from './config';
 import { DimensionRegistry } from './DimensionRegistry';
 import { DecisionEngine } from './DecisionEngine';
 import { OpportunityEnrichmentService } from './OpportunityEnrichmentService';
+import { IntelligenceEngine } from './IntelligenceEngine';
 
 // Import Evaluator Scorers
 import { TitleFitScorer } from './dimensions/TitleFit';
@@ -154,6 +155,9 @@ export class RankingEngine {
 
     const overallScore = this.computeWeightedScore(fitVector);
 
+    // 5. Compile the BriefingBundle via IntelligenceEngine
+    const briefingBundle = IntelligenceEngine.getBriefings(context, fitVector);
+
     // Build the consolidated V3.1 EvaluationResult payload
     const evalResult: EvaluationResult = {
       version: "3.1.2",
@@ -165,6 +169,7 @@ export class RankingEngine {
       ruleId: decision.ruleId,
       overallConfidence,
       scoreCoverage,
+      briefingBundle,
       evidence: parsedEvidence,
       metadata: {
         evaluatedAt: new Date().toISOString()

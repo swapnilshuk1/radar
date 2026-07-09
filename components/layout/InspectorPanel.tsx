@@ -68,11 +68,21 @@ export function InspectorPanel({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
-          {mode === "brief" && (
-            <div className="p-6">
-              <ExecutiveBrief job={activeJob} onUpdateStatus={onUpdateStatus} />
-            </div>
-          )}
+          {mode === "brief" && activeJob && (() => {
+            const explanation = activeJob.rankingData
+              ? (() => { try { return JSON.parse(activeJob.rankingData); } catch { return null; } })()
+              : null;
+            const briefingBundle = explanation?.evalResult?.briefingBundle || null;
+            return (
+              <div className="p-6">
+                <ExecutiveBrief 
+                  job={activeJob} 
+                  briefingBundle={briefingBundle} 
+                  onUpdateStatus={onUpdateStatus} 
+                />
+              </div>
+            );
+          })()}
           {mode === "insights" && (
             <div className="p-6">
               <WorkspaceInsights jobs={jobs} logs={logs} />
