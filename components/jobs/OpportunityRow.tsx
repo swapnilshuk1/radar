@@ -108,14 +108,14 @@ export function OpportunityRow({ job, isActive, onSelect, onUpdateStatus }: Oppo
   return (
     <div
       onClick={onSelect}
-      className={`group relative flex flex-col transition-all duration-150 ease-out border-b border-slate-100/70 select-none cursor-pointer ${
+      className={`group relative flex flex-col transition-all duration-150 ease-out border rounded-lg mb-3 select-none cursor-pointer shadow-[0_1px_2px_rgba(0,0,0,0.02)] ${
         isActive 
-          ? 'bg-slate-50/75 min-h-[190px]' 
-          : 'bg-white hover:bg-slate-50/30 min-h-[80px]'
+          ? 'bg-slate-50/80 border-slate-900 min-h-[190px] shadow-sm' 
+          : 'bg-white border-slate-200/70 hover:border-slate-300 hover:shadow-sm hover:bg-slate-50/10 min-h-[80px]'
       }`}
     >
       {/* Active Left Border Accent */}
-      <div className={`absolute left-0 top-0 bottom-0 w-[3px] transition-colors ${
+      <div className={`absolute left-0 top-0 bottom-0 w-[3px] transition-colors rounded-l-lg ${
         isActive ? 'bg-slate-900' : 'bg-transparent group-hover:bg-slate-200'
       }`} />
 

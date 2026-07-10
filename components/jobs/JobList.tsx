@@ -64,7 +64,7 @@ export function JobList({
       </div>
 
       {/* Row List */}
-      <div className="divide-y divide-slate-100 overflow-y-auto max-h-[calc(100vh-200px)] min-h-[350px] mt-3">
+      <div className="overflow-y-auto max-h-[calc(100vh-200px)] min-h-[350px] mt-3 px-0.5 py-1">
         {jobs.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 px-6 text-center select-none font-sans">
             <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 mb-3 shadow-sm">

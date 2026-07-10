@@ -7,8 +7,10 @@ import {
   Layers,
   Zap,
   Loader2,
-  BarChart3
+  BarChart3,
+  Sliders
 } from "lucide-react";
+import Link from "next/link";
 
 interface WorkspaceHeaderProps {
   selectedPortal: string;
@@ -101,6 +103,16 @@ export function WorkspaceHeader({
       {/* Right: Console controls */}
       <div className="flex items-center gap-3 shrink-0">
         
+        {/* Weight Config Button */}
+        <Link
+          href="/weights"
+          className="px-3 py-1.5 border border-slate-800 bg-transparent hover:bg-slate-800 text-slate-400 hover:text-white rounded transition-all flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider cursor-pointer"
+          title="Configure Weights"
+        >
+          <Sliders className="w-3 h-3 shrink-0" />
+          <span>Weights</span>
+        </Link>
+
         {/* Workspace Insights toggle */}
         <button
           onClick={onInsightsToggle}
