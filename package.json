@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "npx tsx tests/ranking/Evaluators.test.ts && npx tsx tests/ranking/HardRequirementScorer.test.ts && npx tsx tests/ranking/Normalizer.test.ts && npx tsx tests/ranking/DecisionEngine.test.ts && npx tsx tests/ranking/OpportunityEnrichment.test.ts && npx tsx tests/ranking/BenchmarkRegression.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
