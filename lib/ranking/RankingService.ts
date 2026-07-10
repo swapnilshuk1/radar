@@ -32,6 +32,7 @@ import { ExecutiveSignalsScorer } from './dimensions/ExecutiveSignals';
 import { IndustryFitScorer } from './dimensions/IndustryFit';
 import { LocationScorer } from './dimensions/LocationScorer';
 import { CompanyResolver } from './dimensions/CompanyResolver';
+import { HardRequirementScorer } from './dimensions/HardRequirementScorer';
 
 // Register V3.1 Evaluators in Registry
 DimensionRegistry.clear();
@@ -42,6 +43,7 @@ DimensionRegistry.register(new ExecutiveSignalsScorer());
 DimensionRegistry.register(new IndustryFitScorer());
 DimensionRegistry.register(new LocationScorer());
 DimensionRegistry.register(new CompanyResolver());
+DimensionRegistry.register(new HardRequirementScorer());
 
 // --- Item 13: In-process Evaluation Cache ---
 // Scoped to the Node.js process lifecycle. Invalidated on server restart or engine version bump.
@@ -105,7 +107,12 @@ export class RankingEngine {
    * Evaluate only local rules to return a base score (0-100) for Scraper gating.
    * Uses configurable weights from config or local defaults.
    */
-  public static evaluateRulesOnly(job: Omit<JobInput, 'semanticData'>, profile?: CandidateProfile, traceId?: string): number {
+  public static evaluateRulesOnly(
+    job: Omit<JobInput, 'semanticData'>, 
+    profile?: CandidateProfile, 
+    traceId?: string,
+    options?: { skipLlmCheck?: boolean }
+  ): number {
     const activeTraceId = traceId ?? Telemetry.generateTraceId();
     Telemetry.startTimer(activeTraceId, "normalizer");
 
@@ -115,7 +122,8 @@ export class RankingEngine {
     const context: EvaluationContext = {
       job: normalizedJob,
       candidate: resolvedProfile,
-      config: getRankingConfig()
+      config: getRankingConfig(),
+      skipLlmCheck: options?.skipLlmCheck ?? true
     };
 
     if (this.isExcluded(normalizedJob, context.config)) {
@@ -147,6 +155,7 @@ export class RankingEngine {
     companyHealth:        'company_quality',
     locationFit:          'location_pref',
     semanticSimilarity:   'semantic_similarity',
+    hardRequirementFit:   'hard_requirement_fit',
   };
 
   /**
@@ -169,11 +178,12 @@ export class RankingEngine {
     return totalWeight > 0 ? Math.round(totalWeightedScore / totalWeight) : 0;
   }
 
-  /**
-   * Evaluates a job against a profile, triggering external LLM enrichment if qualified.
-   * Consumes cached semanticData from SQLite if available.
-   */
-  public static evaluate(job: JobInput, profile?: CandidateProfile, traceId?: string): RankingResult {
+  public static evaluate(
+    job: JobInput, 
+    profile?: CandidateProfile, 
+    traceId?: string,
+    options?: { skipLlmCheck?: boolean }
+  ): RankingResult {
     const activeTraceId = traceId ?? Telemetry.generateTraceId();
     Telemetry.startTimer(activeTraceId, "normalizer");
 
@@ -183,7 +193,8 @@ export class RankingEngine {
     const context: EvaluationContext = {
       job: normalizedJob,
       candidate: resolvedProfile,
-      config: getRankingConfig()
+      config: getRankingConfig(),
+      skipLlmCheck: options?.skipLlmCheck
     };
 
     // Check hard filters

@@ -132,6 +132,7 @@ export interface EvaluationContext {
   job: NormalizedJob;
   candidate: CandidateProfile;
   config: any;
+  skipLlmCheck?: boolean;
 }
 
 export interface EvaluationResult {

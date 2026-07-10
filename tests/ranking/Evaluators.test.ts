@@ -83,15 +83,18 @@ console.log('\nFunctionalFitScorer:');
   const r = functionalScorer.score(ctx('VP CRM Marketing', 'salesforce crm migration strategy martech'));
   assert('CRM + martech → score ≥ 50', r.score >= 50);
   assert('has matched terms', r.matched.length > 0);
+  assert('metadata contains dataSufficiency', typeof r.metadata?.dataSufficiency === 'string');
+  assert('metadata contains extractedSkills', typeof r.metadata?.extractedSkills === 'number');
 }
 {
   const r = functionalScorer.score(ctx('Director Finance', 'balance sheets and treasury management'));
-  // Starts with high baseline 85, no matching elements or missing elements penalize or reward it based on jobSkills
-  assert('finance-only → score > 0', r.score > 0);
+  assert('finance-only → score is exactly 35', r.score === 35);
+  assert('finance-only → dataSufficiency is low', r.metadata?.dataSufficiency === 'low');
 }
 {
-  const r = functionalScorer.score(ctx('Head Digital Marketing', 'digital marketing and customer lifecycle'));
-  assert('digital + lifecycle → score > 0', r.score > 0);
+  const r = functionalScorer.score(ctx('VP Marketing', 'growth and brand activation'));
+  assert('marketing function without skills → score is exactly 45', r.score === 45);
+  assert('marketing function without skills → dataSufficiency is medium', r.metadata?.dataSufficiency === 'medium');
 }
 
 // ── LocationScorer ─────────────────────────────────────────────────────────

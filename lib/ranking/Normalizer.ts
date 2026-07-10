@@ -127,7 +127,7 @@ export function normalize(raw: JobInput): NormalizedJob {
   const functions = functionsList.filter(f => allText.includes(f));
 
   // 3. Skills Extraction
-  const skillsList = ['salesforce cdp', 'crm migration', 'conversion strategy', 'a/b testing', 'roas optimization', 'customer lifecycle', 'retention'];
+  const skillsList = ['salesforce cdp', 'crm migration', 'conversion strategy', 'a/b testing', 'roas optimization', 'customer lifecycle', 'retention', 'digital marketing', 'performance marketing', 'crm'];
   const skills = skillsList.filter(s => allText.includes(s));
 
   // 4. Technology Extraction

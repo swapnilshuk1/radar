@@ -23,10 +23,10 @@ export class FunctionalFitScorer implements Evaluator {
     const jobSkills = [...job.skills, ...job.technologies];
     const jobFunctions = job.functions || [];
 
-    let score = 85; // Starting high baseline
+    let score = 0;
+    let matchCount = 0;
 
     if (jobSkills.length > 0) {
-      let matchCount = 0;
       let missCount = 0;
 
       for (const skill of jobSkills) {
@@ -62,8 +62,8 @@ export class FunctionalFitScorer implements Evaluator {
       const matchRatio = matchCount / jobSkills.length;
       score = Math.round(matchRatio * 100);
 
-      // Give partial credit if functional keywords match target titles
-      if (score < 70 && jobFunctions.some(f => profile.strategy?.targetTitles?.some(t => t.toLowerCase().includes(f)))) {
+      // Give partial credit if functional keywords match target titles and we have at least one matched skill
+      if (score < 70 && matchCount > 0 && jobFunctions.some(f => profile.strategy?.targetTitles?.some(t => t.toLowerCase().includes(f)))) {
         score += 15;
       }
     } else {
@@ -71,7 +71,7 @@ export class FunctionalFitScorer implements Evaluator {
       const matchesTargetFunction = jobFunctions.some(f => 
         profile.strategy?.targetTitles?.some(t => t.toLowerCase().includes(f))
       );
-      score = matchesTargetFunction ? 90 : 50;
+      score = matchesTargetFunction ? 45 : 35;
 
       if (matchesTargetFunction) {
         matched.push({
@@ -95,6 +95,17 @@ export class FunctionalFitScorer implements Evaluator {
     // Bind score constraints between 0 and 100
     score = Math.min(Math.max(score, 0), 100);
 
+    // Compute data sufficiency based on sum of skills and functions
+    const totalExtracted = jobSkills.length + jobFunctions.length;
+    let dataSufficiency: "low" | "medium" | "high" = "low";
+    if (totalExtracted >= 3) {
+      dataSufficiency = "high";
+    } else if (totalExtracted >= 1) {
+      dataSufficiency = "medium";
+    } else {
+      dataSufficiency = "low";
+    }
+
     return {
       score,
       confidence: allTokens.length > 50 ? 0.95 : 0.6,
@@ -102,7 +113,14 @@ export class FunctionalFitScorer implements Evaluator {
       missing: missing.slice(0, 5),
       explanation: matched.length > 0
         ? `Matched functional competencies: ${matched.map(m => m.label.replace(' (matched)', '')).slice(0, 2).join(', ')}.`
-        : 'Limited functional skill matches identified. Expected competencies were missing.'
+        : 'Limited functional skill matches identified. Expected competencies were missing.',
+      metadata: {
+        dataSufficiency,
+        extractedSkills: jobSkills.length,
+        extractedFunctions: jobFunctions.length,
+        matchedSkills: matchCount,
+        matchRatio: jobSkills.length > 0 ? parseFloat((matchCount / jobSkills.length).toFixed(4)) : 0
+      }
     };
   }
 }

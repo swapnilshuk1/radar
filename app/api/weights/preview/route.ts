@@ -16,6 +16,7 @@ const DIMENSION_KEY_MAP: Record<string, string> = {
   companyHealth:        'company_quality',
   locationFit:          'location_pref',
   semanticSimilarity:   'semantic_similarity',
+  hardRequirementFit:   'hard_requirement_fit',
 };
 
 export const dynamic = 'force-dynamic';

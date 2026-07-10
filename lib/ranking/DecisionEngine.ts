@@ -23,6 +23,16 @@ export class DecisionEngine {
     const careerScore = fitVector.careerProgressionFit?.score ?? 0;
     const companyScore = fitVector.companyHealth?.score ?? 0;
 
+    // Hard requirement check override (must run BEFORE all other rules)
+    if (fitVector.hardRequirementFit && fitVector.hardRequirementFit.score <= 30) {
+      return {
+        ruleId: "HARD_REQ_OVERRIDE",
+        verdict: VerdictEnum.WORTH_REVIEWING,
+        recommendation: RecommendationEnum.MONITOR,
+        reasons: ["HARD_REQUIREMENT_MISMATCH"]
+      };
+    }
+
     // Rule 1: Premium Executive Target & Location Match (Apply Immediately)
     if (titleScore >= 90 && leadershipScore >= 70 && functionalScore >= 80 && locationScore >= 80) {
       return {

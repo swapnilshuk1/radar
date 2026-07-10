@@ -79,6 +79,13 @@ const DIMENSION_META: Record<
     description: 'Deep context match via Gemini — only for qualifying jobs (rule score ≥ 40)',
     emoji: '🤖',
   },
+  hard_requirement_fit: {
+    label: 'Hard Requirement Check',
+    color: '#e11d48',
+    tailwindColor: 'rose',
+    description: 'Mandatory / must-have requirements in listing candidate lacks (detected by Gemini LLM)',
+    emoji: '⛔',
+  },
 };
 
 // ─── Types ─────────────────────────────────────────────────────────────────────

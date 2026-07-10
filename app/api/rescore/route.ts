@@ -109,6 +109,15 @@ export async function POST() {
           rejected++;
         } else {
           const exp = finalResult.explanation!;
+
+          // Merge hardMismatches back to DB cache if newly fetched
+          const hardMismatches = finalResult.explanation?.evalResult?.fitVector?.hardRequirementFit?.metadata?.hardMismatches;
+          if (hardMismatches && Array.isArray(hardMismatches)) {
+            const parsed = semanticDataJson ? JSON.parse(semanticDataJson) : {};
+            parsed.hardMismatches = hardMismatches;
+            semanticDataJson = JSON.stringify(parsed);
+          }
+
           await prisma.discoveredJob.update({
             where: { id: job.id },
             data: {

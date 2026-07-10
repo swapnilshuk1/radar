@@ -35,7 +35,7 @@ export async function POST() {
           location: job.location || '',
           company: job.company,
           semanticData: job.semanticData ?? null,
-        });
+        }, undefined, undefined, { skipLlmCheck: true });
 
         if (result.rejected) {
           skipped++;
@@ -43,6 +43,17 @@ export async function POST() {
         }
 
         const explanation = result.explanation!;
+
+        // Merge hardMismatches back to DB cache if present
+        const hardMismatches = result.explanation?.evalResult?.fitVector?.hardRequirementFit?.metadata?.hardMismatches;
+        let updatedSemanticData = job.semanticData;
+        if (hardMismatches && Array.isArray(hardMismatches)) {
+          const parsed = job.semanticData ? JSON.parse(job.semanticData) : {};
+          if (!parsed.hardMismatches) {
+            parsed.hardMismatches = hardMismatches;
+            updatedSemanticData = JSON.stringify(parsed);
+          }
+        }
 
         await prisma.discoveredJob.update({
           where: { id: job.id },
@@ -52,6 +63,7 @@ export async function POST() {
             rankingVersion: explanation.version,
             rankingConfigVersion: explanation.configVersion,
             jobHash: explanation.jobHash ?? null,
+            ...(updatedSemanticData !== job.semanticData ? { semanticData: updatedSemanticData } : {})
           },
         });
 

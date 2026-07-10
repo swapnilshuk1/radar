@@ -4,7 +4,7 @@ import { prisma } from './db';
 import { RankingEngine } from './ranking/RankingService';
 import { Telemetry } from './ranking/Telemetry';
 import { VERSION_MANIFEST } from './ranking/VersionManifest';
-import { getConfig, getCandidateProfile } from './ranking/config';
+import { getConfig, getCandidateProfile, clearConfigCache } from './ranking/config';
 import { OpportunityEnrichmentService } from './ranking/OpportunityEnrichmentService';
 import { normalize } from './ranking/Normalizer';
 import path from 'path';
@@ -244,6 +244,7 @@ async function handleCaptchaOrLoginGate(page: any, portal: string, searchUrl: st
 
 export async function runScraper(logCallback: (msg: string) => void) {
   (global as any).shouldStopScraper = false;
+  clearConfigCache();
   const config = getConfig();
 
   // Generate a unique Trace ID for the full pipeline run
@@ -342,11 +343,7 @@ export async function runScraper(logCallback: (msg: string) => void) {
             const startVal = pageNum * 10;
             searchUrl = `${portalInfo.base_url}${encodeURIComponent(mandate)}&start=${startVal}`;
           } else if (portalName === 'Naukri') {
-            if (pageNum === 0) {
-              searchUrl = `https://www.naukri.com/jobs-in-india?k=${encodeURIComponent(mandate)}`;
-            } else {
-              searchUrl = `https://www.naukri.com/jobs-in-india-${pageNum + 1}?k=${encodeURIComponent(mandate)}`;
-            }
+            searchUrl = `https://www.naukri.com/jobs-in-india?k=${encodeURIComponent(mandate)}&pageNo=${pageNum + 1}`;
           }
 
           logCallback(`Navigating to: ${searchUrl}`);
@@ -492,11 +489,11 @@ export async function runScraper(logCallback: (msg: string) => void) {
           else if (portalName === 'Indeed') {
             logCallback('[Indeed] Waiting up to 10s for job cards to render...');
             try {
-              await page.waitForSelector('div.job_seen_beacon, td.resultContent', { timeout: 10000 });
+              await page.waitForSelector('div.job_seen_beacon', { timeout: 10000 });
             } catch (e) {
               logCallback('[Indeed] Timeout waiting for job cards, checking fallbacks...');
             }
-            let cards = await page.locator('div.job_seen_beacon, td.resultContent').all();
+            let cards = await page.locator('div.job_seen_beacon').all();
             logCallback(`Found ${cards.length} potential Indeed listings on page.`);
 
             if (cards.length === 0) {
@@ -528,27 +525,44 @@ export async function runScraper(logCallback: (msg: string) => void) {
             } else {
               for (const card of cards) {
                 try {
+                  let title = '';
                   const titleEl = card.locator('h2.jobTitle, .jobTitle');
-                  const title = (await titleEl.textContent() || '').trim();
+                  if (await titleEl.count() > 0) {
+                    title = (await titleEl.first().textContent() || '').trim();
+                  }
 
+                  let company = '';
                   const companyEl = card.locator('[data-testid="company-name"], .companyName');
-                  const company = (await companyEl.textContent() || '').trim();
+                  if (await companyEl.count() > 0) {
+                    company = (await companyEl.first().textContent() || '').trim();
+                  }
 
+                  let location = '';
                   const locationEl = card.locator('[data-testid="text-location"], .companyLocation');
-                  const location = (await locationEl.textContent() || '').trim();
-
-                  const urlEl = card.locator('a[href*="/rc/clk"], a[href*="/jobs/view"]').first();
-                  let href = await urlEl.getAttribute('href') || '';
-                  let url = href;
-                  if (href && !href.startsWith('http')) {
-                    url = `https://in.indeed.com${href}`;
-                  }
-                  if (url) {
-                    url = url.split('&')[0]; // simple cleaning
+                  if (await locationEl.count() > 0) {
+                    location = (await locationEl.first().textContent() || '').trim();
                   }
 
+                  let url = '';
+                  const urlEl = card.locator('h2.jobTitle a, .jobTitle a, a[href*="/rc/clk"], a[href*="/pagead/clk"], a[href*="/jobs/view"]').first();
+                  if (await urlEl.count() > 0) {
+                    let href = await urlEl.getAttribute('href') || '';
+                    url = href;
+                    if (href && !href.startsWith('http')) {
+                      url = `https://in.indeed.com${href}`;
+                    }
+                    if (url) {
+                      url = url.split('&')[0]; // simple cleaning
+                    }
+                  }
+
+                  let snippet = '';
                   const snippetEl = card.locator('.job-snippet, .underSection');
-                  const snippet = (await snippetEl.textContent() || '').trim();
+                  if (await snippetEl.count() > 0) {
+                    snippet = (await snippetEl.first().textContent() || '').trim();
+                  } else {
+                    snippet = title; // fallback
+                  }
 
                   if (title && url) {
                     jobsFound.push({ title, company, location, url, snippet, sourcePortal: 'Indeed' });
@@ -560,11 +574,11 @@ export async function runScraper(logCallback: (msg: string) => void) {
           else if (portalName === 'Naukri') {
             logCallback('[Naukri] Waiting up to 10s for job cards to render...');
             try {
-              await page.waitForSelector('.srp-jobtuple, .jobTuple', { timeout: 10000 });
+              await page.waitForSelector('.srp-jobtuple-wrapper, .cust-job-tuple', { timeout: 10000 });
             } catch (e) {
               logCallback('[Naukri] Timeout waiting for job cards, checking fallbacks...');
             }
-            let cards = await page.locator('.srp-jobtuple, .jobTuple').all();
+            let cards = await page.locator('.srp-jobtuple-wrapper, .cust-job-tuple').all();
             logCallback(`Found ${cards.length} potential Naukri listings on page.`);
 
             if (cards.length === 0) {
@@ -589,22 +603,39 @@ export async function runScraper(logCallback: (msg: string) => void) {
             } else {
               for (const card of cards) {
                 try {
+                  let title = '';
                   const titleEl = card.locator('a.title, .title');
-                  const title = (await titleEl.first().textContent() || '').trim();
-
-                  const companyEl = card.locator('a.comp-name, .comp-name');
-                  const company = (await companyEl.first().textContent() || '').trim();
-
-                  const locationEl = card.locator('.locWdth, span.loc');
-                  const location = (await locationEl.first().textContent() || '').trim();
-
-                  let url = await titleEl.first().getAttribute('href') || '';
-                  if (url && !url.startsWith('http')) {
-                    url = `https://www.naukri.com${url}`;
+                  if (await titleEl.count() > 0) {
+                    title = (await titleEl.first().textContent() || '').trim();
                   }
 
+                  let company = '';
+                  const companyEl = card.locator('a.comp-name, .comp-name');
+                  if (await companyEl.count() > 0) {
+                    company = (await companyEl.first().textContent() || '').trim();
+                  }
+
+                  let location = '';
+                  const locationEl = card.locator('.locWdth, span.loc');
+                  if (await locationEl.count() > 0) {
+                    location = (await locationEl.first().textContent() || '').trim();
+                  }
+
+                  let url = '';
+                  if (await titleEl.count() > 0) {
+                    url = await titleEl.first().getAttribute('href') || '';
+                    if (url && !url.startsWith('http')) {
+                      url = `https://www.naukri.com${url}`;
+                    }
+                  }
+
+                  let snippet = '';
                   const snippetEl = card.locator('.job-description, .job-desc, .job-description-details');
-                  const snippet = (await snippetEl.first().textContent() || '').trim();
+                  if (await snippetEl.count() > 0) {
+                    snippet = (await snippetEl.first().textContent() || '').trim();
+                  } else {
+                    snippet = title; // fallback
+                  }
 
                   if (title && url) {
                     jobsFound.push({ title, company, location, url, snippet, sourcePortal: 'Naukri' });
@@ -806,6 +837,14 @@ export async function runScraper(logCallback: (msg: string) => void) {
                   if (finalResult.explanation) {
                     finalExplanation = finalResult.explanation;
                     finalScore = finalExplanation.matchScore;
+
+                    // Merge hardMismatches back to DB cache if newly fetched
+                    const hardMismatches = finalResult.explanation?.evalResult?.fitVector?.hardRequirementFit?.metadata?.hardMismatches;
+                    if (hardMismatches && Array.isArray(hardMismatches)) {
+                      semData.hardMismatches = hardMismatches;
+                      semanticDataJson = JSON.stringify(semData);
+                    }
+
                     logCallback(`[Semantic] Enrichment complete for "${job.title}". Final Score: ${finalScore} (Verdict: ${semData.executiveVerdict || 'N/A'})`);
                   }
                 } catch (evalErr: any) {

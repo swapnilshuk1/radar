@@ -4,15 +4,13 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { WorkspaceHeader } from '../components/layout/WorkspaceHeader';
 import { InspectorPanel, InspectorMode } from '../components/layout/InspectorPanel';
 import { JobList, Job } from '../components/jobs/JobList';
-import { CommandBar } from '../components/ui/CommandBar';
 
 export default function Dashboard() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [logs, setLogs] = useState<string[]>([]);
   const [isScraping, setIsScraping] = useState(false);
 
-  const [selectedPortal, setSelectedPortal] = useState<string>('All');
-  const [selectedStatus, setSelectedStatus] = useState<string>('New');
+  const [selectedTab, setSelectedTab] = useState<string>('OVERVIEW');
   const [loadingJobs, setLoadingJobs] = useState(false);
   const [searchText, setSearchText] = useState<string>('');
 
@@ -20,39 +18,33 @@ export default function Dashboard() {
   const eventSourceRef = useRef<EventSource | null>(null);
 
   // ── Inspector State Machine ──────────────────────────────────────────────
-  // Three modes: hidden | brief | insights
-  // Priority: brief (job selected) > insights (explicit) > hidden (default)
   const [inspectorMode, setInspectorMode] = useState<InspectorMode>('hidden');
-
-  // Remember last explicit mode so we can restore it (per spec)
   const lastModeRef = useRef<'brief' | 'insights'>('insights');
 
-  // Open brief whenever a job is selected (seamlessly updates if already open)
+  // Open brief whenever a job is selected
   const handleSelectJob = useCallback((job: Job) => {
     setActiveJob(job);
     setInspectorMode('brief');
     lastModeRef.current = 'brief';
   }, []);
 
-  // Toggle insights: if already showing insights → hide; otherwise show insights
+  // Toggle insights
   const handleInsightsToggle = useCallback(() => {
     setInspectorMode(prev => {
       if (prev === 'insights') return 'hidden';
-      // Switching to insights — deselect active job so we don't show stale brief
       setActiveJob(null);
       lastModeRef.current = 'insights';
       return 'insights';
     });
   }, []);
 
-  // Close inspector and return to primary triage mode
+  // Close inspector
   const handleCloseInspector = useCallback(() => {
     setInspectorMode('hidden');
     setActiveJob(null);
   }, []);
 
-  // Escape key → always return to hidden
-  // Arrow keys → navigate the feed
+  // Escape key ➔ close briefing, J/K ➔ navigate, Enter ➔ open URL, S ➔ watchlist, A ➔ archive
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const inInput = document.activeElement?.tagName === 'INPUT' ||
@@ -71,25 +63,36 @@ export default function Dashboard() {
 
       switch (e.key) {
         case 'ArrowDown':
+        case 'j':
+        case 'J':
           e.preventDefault();
-          handleSelectJob(filteredJobs[Math.min(currentIndex + 1, filteredJobs.length - 1)]);
+          const nextIndex = Math.min(currentIndex + 1, filteredJobs.length - 1);
+          if (nextIndex >= 0) handleSelectJob(filteredJobs[nextIndex]);
           break;
         case 'ArrowUp':
+        case 'k':
+        case 'K':
           e.preventDefault();
-          if (currentIndex > 0) handleSelectJob(filteredJobs[currentIndex - 1]);
+          const prevIndex = currentIndex - 1;
+          if (prevIndex >= 0) handleSelectJob(filteredJobs[prevIndex]);
           break;
         case 's':
         case 'S':
           e.preventDefault();
-          if (activeJob) updateJobStatus(activeJob.id, 'Reviewed');
+          if (activeJob) {
+            const nextStatus = activeJob.status === 'Reviewed' ? 'New' : 'Reviewed';
+            updateJobStatus(activeJob.id, nextStatus);
+          }
           break;
         case 'a':
         case 'A':
           e.preventDefault();
-          if (activeJob) updateJobStatus(activeJob.id, 'Archived');
+          if (activeJob) {
+            const nextStatus = activeJob.status === 'Archived' ? 'New' : 'Archived';
+            updateJobStatus(activeJob.id, nextStatus);
+          }
           break;
-        case 'o':
-        case 'O':
+        case 'Enter':
           e.preventDefault();
           if (activeJob) {
             let url = activeJob.url;
@@ -188,73 +191,76 @@ export default function Dashboard() {
     }
   };
 
-  // ── Filtering ────────────────────────────────────────────────────────────
+  // ── Tab-based Filtering ➔ OVERVIEW | OPPORTUNITIES | WATCHLIST | ARCHIVED ─
   const filteredJobs = useMemo(() => {
     return jobs.filter(job => {
-      const portalMatch = selectedPortal === 'All' || job.sourcePortal === selectedPortal;
-      const statusMatch = job.status === selectedStatus;
+      let statusMatch = false;
+      if (selectedTab === 'OVERVIEW') statusMatch = job.status === 'New';
+      else if (selectedTab === 'OPPORTUNITIES') statusMatch = job.status === 'New' || job.status === 'Reviewed';
+      else if (selectedTab === 'WATCHLIST') statusMatch = job.status === 'Reviewed';
+      else if (selectedTab === 'ARCHIVED') statusMatch = job.status === 'Archived';
+
       const searchMatch = searchText === '' ||
         job.title.toLowerCase().includes(searchText.toLowerCase()) ||
         job.company.toLowerCase().includes(searchText.toLowerCase()) ||
         job.location.toLowerCase().includes(searchText.toLowerCase()) ||
         (job.snippet || '').toLowerCase().includes(searchText.toLowerCase());
-      return portalMatch && statusMatch && searchMatch;
+      return statusMatch && searchMatch;
     });
-  }, [jobs, selectedPortal, selectedStatus, searchText]);
+  }, [jobs, selectedTab, searchText]);
 
-  // ── Metrics ──────────────────────────────────────────────────────────────
-  const newCount = jobs.filter(j => j.status === 'New').length;
-  const reviewedCount = jobs.filter(j => j.status === 'Reviewed').length;
-  const maxScore = jobs.length > 0 ? Math.max(...jobs.map(j => j.matchScore)) : 0;
+  // ── Stats Counts for Snapshot cards ──────────────────────────────────────
+  const stats = useMemo(() => {
+    const newJobs = jobs.filter(j => j.status === 'New');
+    const applyCount = newJobs.filter(j => j.matchScore >= 65).length;
+    const tailorCount = newJobs.filter(j => j.matchScore >= 50 && j.matchScore < 65).length;
+    const watchCount = newJobs.filter(j => j.matchScore >= 35 && j.matchScore < 50).length;
+    const unlockCount = newJobs.filter(j => j.matchScore >= 50).length; // actionable tips count
 
-
+    return {
+      apply: applyCount,
+      tailor: tailorCount,
+      watch: watchCount,
+      unlock: unlockCount
+    };
+  }, [jobs]);
 
   return (
-    <div className="flex flex-col h-screen bg-white text-slate-900 antialiased font-sans overflow-hidden">
-
-      {/* Header */}
+    <div className="flex flex-col h-screen bg-[hsl(var(--background))] text-slate-900 antialiased font-sans overflow-hidden">
+      
+      {/* Redesigned WorkspaceHeader */}
       <WorkspaceHeader
-        selectedPortal={selectedPortal}
-        setSelectedPortal={setSelectedPortal}
+        searchText={searchText}
+        setSearchText={setSearchText}
+        selectedTab={selectedTab}
+        setSelectedTab={setSelectedTab}
         isScraping={isScraping}
         startScrape={startScrape}
         stopScrape={stopScrape}
         fetchJobs={fetchJobs}
         loadingJobs={loadingJobs}
-        totalCount={jobs.length}
-        newCount={newCount}
-        reviewedCount={reviewedCount}
-        maxScore={maxScore}
-        insightsModeActive={inspectorMode === 'insights'}
-        onInsightsToggle={handleInsightsToggle}
       />
 
-      {/* Main workspace: Feed + Inspector side by side */}
+      {/* Main Workspace split layout */}
       <main className="flex flex-1 overflow-hidden">
-
-        {/* Feed — expands to fill available width fluidly */}
-        <section className="flex flex-col flex-1 min-w-0 overflow-hidden border-r border-slate-100">
-          <div className="flex-1 flex flex-col w-full max-w-5xl mx-auto overflow-hidden">
-            {/* Search bar */}
-            <div className="px-4 pt-4 pb-2 shrink-0">
-              <CommandBar value={searchText} onChange={setSearchText} />
-            </div>
-
-            {/* Job list scrolls independently */}
-            <div className="flex-1 overflow-y-auto">
+        
+        {/* Left Side: Job Feed */}
+        <section className={`flex flex-col border-r border-[#E2E8F0] overflow-hidden bg-[hsl(var(--background))] transition-all duration-200 ${inspectorMode !== 'hidden' ? 'w-[440px] shrink-0' : 'flex-1'}`}>
+          <div className="flex-1 flex flex-col w-full max-w-5xl mx-auto overflow-hidden px-6 pt-6">
+            <div className="flex-1 overflow-y-auto pr-2 pb-6">
               <JobList
                 jobs={filteredJobs}
                 activeJobId={activeJob ? activeJob.id : null}
                 onSelectJob={handleSelectJob}
                 onUpdateStatus={updateJobStatus}
-                selectedStatus={selectedStatus}
-                setSelectedStatus={setSelectedStatus}
+                selectedTab={selectedTab}
+                stats={stats}
               />
             </div>
           </div>
         </section>
 
-        {/* Inspector — slides in/out, never takes layout space when hidden */}
+        {/* Right Side: Split-Pane Briefing / Insights */}
         <InspectorPanel
           mode={inspectorMode}
           activeJob={activeJob}

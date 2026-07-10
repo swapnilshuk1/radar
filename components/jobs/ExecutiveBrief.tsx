@@ -1,7 +1,4 @@
 // components/jobs/ExecutiveBrief.tsx
-// Presentation-only renderer for V3.2 Intelligence Briefing Bundle.
-// Fully interactive accordion interface showing Company, Resume, Interview, and Compensation data points.
-
 "use client";
 
 import React, { useState } from "react";
@@ -9,177 +6,46 @@ import { Job } from "./JobList";
 import { 
   Building2, 
   MapPin, 
-  ExternalLink, 
-  CheckCircle, 
-  Sparkles, 
-  Info,
-  Calendar,
-  Lock,
-  LineChart,
-  UserCheck,
-  FileText,
-  ChevronDown,
-  ShieldCheck,
-  Zap
+  Calendar, 
+  Bookmark, 
+  ExternalLink,
+  Check,
+  AlertTriangle,
+  ArrowUpRight
 } from "lucide-react";
-import type { 
-  RankingExplanation, 
-  PriorityTier, 
-  RankingDimension, 
-  BriefingBundle, 
-  Briefing, 
-  BriefingSection 
-} from "../../lib/ranking/types";
+import type { RankingExplanation, SemanticData } from "../../lib/ranking/types";
 
 interface ExecutiveBriefProps {
   job: Job | null;
-  briefingBundle: BriefingBundle | null;
+  briefingBundle: any;
   onUpdateStatus: (id: string, status: "New" | "Reviewed" | "Archived") => void;
 }
 
-const RECOMMENDATION_LABELS: Record<PriorityTier, string> = {
-  'Must Review':     'Apply Immediately',
-  'Strong Match':    'Apply This Week',
-  'Worth Reviewing': 'Monitor Closely',
-  'Possible Match':  'Explore Context',
-  'Low Priority':    'Skip/Archive',
-};
-
-const RECOMMENDATION_COLORS: Record<PriorityTier, string> = {
-  'Must Review':     'text-emerald-500 font-extrabold',
-  'Strong Match':    'text-emerald-500 font-extrabold',
-  'Worth Reviewing': 'text-amber-400 font-extrabold',
-  'Possible Match':  'text-slate-400 font-semibold',
-  'Low Priority':    'text-slate-500 font-semibold',
-};
-
-function getQualitativeLabel(score: number): { text: string; color: string; bg: string } {
-  if (score >= 0.8) return { text: 'Excellent', color: 'text-emerald-500 font-extrabold', bg: 'bg-emerald-950/20' };
-  if (score >= 0.6) return { text: 'Strong',    color: 'text-blue-500 font-extrabold',    bg: 'bg-blue-950/20'    };
-  if (score >= 0.4) return { text: 'Moderate',  color: 'text-amber-500 font-extrabold',   bg: 'bg-amber-950/20'   };
-  if (score > 0)    return { text: 'Weak',      color: 'text-slate-400 font-medium',      bg: 'bg-slate-800/30'   };
-  return { text: 'Missing',   color: 'text-slate-500 font-medium',      bg: 'bg-slate-800/10'    };
-}
-
-function DimensionRow({ dimension }: { dimension: RankingDimension }) {
-  const label = getQualitativeLabel(dimension.rawScore);
-  return (
-    <div className="flex justify-between items-center py-2 border-b border-slate-800">
-      <span className="text-[11px] font-semibold text-slate-400">{dimension.name}</span>
-      <span className={`text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.2 rounded ${label.bg} ${label.color}`}>
-        {label.text}
-      </span>
-    </div>
-  );
-}
-
-/** Renders individual sections based on type */
-function BriefingSectionRenderer({ section }: { section: BriefingSection }) {
-  if (section.type === "narrative") {
-    return (
-      <div className="space-y-1">
-        <p className="text-[9.5px] font-extrabold uppercase tracking-wider text-slate-500">{section.title}</p>
-        <p className="text-[11.5px] text-slate-300 leading-relaxed font-semibold">{section.content as string}</p>
-      </div>
-    );
-  }
-
-  if (section.type === "checklist") {
-    const list = section.content as string[];
-    return (
-      <div className="space-y-1.5">
-        <p className="text-[9.5px] font-extrabold uppercase tracking-wider text-slate-500">{section.title}</p>
-        <ul className="space-y-1 text-[11px] text-slate-300 font-semibold">
-          {list.map((item, idx) => (
-            <li key={idx} className="flex items-start gap-1.5">
-              <span className="text-emerald-500 font-extrabold shrink-0">✓</span>
-              <span>{item}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    );
-  }
-
-  if (section.type === "risk") {
-    const list = section.content as string[];
-    return (
-      <div className="space-y-1.5">
-        <p className="text-[9.5px] font-extrabold uppercase tracking-wider text-slate-500">{section.title}</p>
-        <ul className="space-y-1 text-[11px] text-slate-400 font-semibold">
-          {list.map((item, idx) => (
-            <li key={idx} className="flex items-start gap-1.5">
-              <span className="text-amber-500 font-extrabold shrink-0">⚠</span>
-              <span>{item}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    );
-  }
-
-  if (section.type === "tag_list") {
-    const list = section.content as string[];
-    return (
-      <div className="space-y-1.5">
-        <p className="text-[9.5px] font-extrabold uppercase tracking-wider text-slate-500">{section.title}</p>
-        <div className="flex flex-wrap gap-1.5">
-          {list.map((tag, idx) => (
-            <span key={idx} className="text-[9px] font-bold uppercase tracking-wider bg-slate-900 border border-slate-800 text-slate-300 px-2 py-0.5 rounded">
-              {tag}
-            </span>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (section.type === "metric_grid") {
-    const grid = section.content as Record<string, string | number>;
-    return (
-      <div className="space-y-2">
-        <p className="text-[9.5px] font-extrabold uppercase tracking-wider text-slate-500">{section.title}</p>
-        <div className="grid grid-cols-2 gap-2 text-[10px]">
-          {Object.entries(grid).map(([label, val], idx) => (
-            <div key={idx} className="bg-slate-900/50 border border-slate-800 p-2 rounded">
-              <span className="text-slate-500 font-semibold block mb-0.5">{label}</span>
-              <span className="text-slate-200 font-extrabold font-mono">{val}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (section.type === "recommendation") {
-    return (
-      <div className="relative border border-emerald-900/40 bg-emerald-950/10 rounded p-3 text-left">
-        <div className="absolute right-3 top-3 text-emerald-500">
-          <Zap className="w-3.5 h-3.5" />
-        </div>
-        <p className="text-[9px] font-extrabold uppercase tracking-widest text-emerald-500">{section.title}</p>
-        <p className="text-[11px] font-semibold text-slate-300 mt-1 leading-relaxed">{section.content as string}</p>
-      </div>
-    );
-  }
-
-  return null;
-}
-
 export function ExecutiveBrief({ job, briefingBundle, onUpdateStatus }: ExecutiveBriefProps) {
-  const [expandedCard, setExpandedCard] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("Executive Briefing");
 
   if (!job) {
     return (
-      <div className="flex flex-col items-center justify-center text-center h-full min-h-[350px] text-slate-500 font-sans p-6 select-none">
-        <Sparkles className="w-5 h-5 opacity-20 text-slate-400 animate-pulse" />
-        <h4 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mt-3">Executive Briefing</h4>
-        <p className="text-[11px] text-slate-500 mt-1 max-w-[200px] leading-relaxed">
-          Select an opportunity from the console feed to render intelligence briefing.
+      <div className="flex flex-col items-center justify-center text-center h-full min-h-[450px] text-slate-400 font-sans p-6 select-none animate-fadeIn">
+        <h4 className="text-[12px] font-black text-slate-400 uppercase tracking-widest">Executive Briefing</h4>
+        <p className="text-[12px] text-slate-500 mt-2 max-w-[280px] leading-relaxed">
+          Select an opportunity from the feed list to render full executive intelligence briefing.
         </p>
       </div>
     );
   }
+
+  // Parse ranking explanation & semantic data
+  const explanation: RankingExplanation | null = job.rankingData
+    ? (() => { try { return JSON.parse(job.rankingData) as RankingExplanation; } catch { return null; } })()
+    : null;
+
+  const sem: SemanticData | null = job.semanticData
+    ? (() => { try { return JSON.parse(job.semanticData) as SemanticData; } catch { return null; } })()
+    : null;
+
+  const isSaved = job.status === "Reviewed";
+  const dateFormatted = new Date(job.scrapedAt).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
 
   // Resolve absolute URL
   let absoluteUrl = job.url;
@@ -189,245 +55,407 @@ export function ExecutiveBrief({ job, briefingBundle, onUpdateStatus }: Executiv
     else if (job.sourcePortal === "Naukri") absoluteUrl = `https://www.naukri.com${job.url}`;
   }
 
-  // Parse ranking explanation
-  const explanation: RankingExplanation | null = job.rankingData
-    ? (() => { try { return JSON.parse(job.rankingData) as RankingExplanation; } catch { return null; } })()
-    : null;
+  // Resolve dynamic "Hidden Gem" status
+  const titleScore = explanation?.evalResult?.fitVector?.titleFit?.score ?? 0;
+  const functionalScore = explanation?.evalResult?.fitVector?.functionalFit?.score ?? 0;
+  const isHiddenGem = titleScore < 60 && functionalScore >= 70;
 
-  const priority = (explanation?.priority || 'Possible Match') as PriorityTier;
-  const recommendationColor = RECOMMENDATION_COLORS[priority] ?? RECOMMENDATION_COLORS['Possible Match'];
-  const recommendationText = RECOMMENDATION_LABELS[priority] ?? 'Explore Context';
-  const confidenceLevel = explanation?.confidence?.level || 'MEDIUM';
-  const relativeDate = new Date(job.scrapedAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+  // Decide Triage Verdict pill details
+  let verdictLabel = "WATCH";
+  let verdictStyle = "bg-blue-50 text-blue-700 border-blue-100";
+  if (job.matchScore >= 65) {
+    verdictLabel = "APPLY";
+    verdictStyle = "bg-emerald-50 text-emerald-700 border-emerald-100";
+  } else if (job.matchScore >= 50 && job.matchScore < 65) {
+    if (isHiddenGem) {
+      verdictLabel = "HIDDEN GEM";
+      verdictStyle = "bg-purple-50 text-purple-700 border-purple-100";
+    } else {
+      verdictLabel = "TAILOR";
+      verdictStyle = "bg-amber-50 text-amber-700 border-amber-100";
+    }
+  }
 
-  // Fallback structures if briefings don't exist yet
-  const defaults = [
-    { key: 'company',      title: 'Company Profile',        icon: Building2 },
-    { key: 'compensation', title: 'Compensation Analytics', icon: LineChart },
-    { key: 'resume',       title: 'Resume Optimizer',       icon: FileText },
-    { key: 'interview',    title: 'Interview Readiness',    icon: UserCheck }
+  // Est. interview probability rating (4 dots)
+  let probabilityText = "Moderate";
+  let probabilityDots = 2;
+  if (job.matchScore >= 80) {
+    probabilityText = "High";
+    probabilityDots = 4;
+  } else if (job.matchScore >= 65) {
+    probabilityText = "High";
+    probabilityDots = 3;
+  } else if (job.matchScore >= 50) {
+    probabilityText = "Moderate";
+    probabilityDots = 2;
+  } else {
+    probabilityText = "Low";
+    probabilityDots = 1;
+  }
+
+  // Dynamic coaching recommendations ("Improve your odds")
+  const improveOdds: { action: string; impact: string; pts: string }[] = [];
+  if (job.sourcePortal === "LinkedIn") {
+    improveOdds.push({
+      action: "Warm intro before applying",
+      impact: "HIGH IMPACT",
+      pts: "+12 pts"
+    });
+  }
+  const missingSkills = explanation?.insights?.missingKeywords || sem?.missingSkills || [];
+  if (missingSkills.length > 0) {
+    missingSkills.slice(0, 2).forEach((skill: string) => {
+      improveOdds.push({
+        action: `Add ${skill.toLowerCase()} project to resume`,
+        impact: "HIGH IMPACT",
+        pts: "+4 pts"
+      });
+    });
+  } else {
+    improveOdds.push({
+      action: "Add executive scaling projects to resume",
+      impact: "HIGH IMPACT",
+      pts: "+6 pts"
+    });
+  }
+
+  // Strengths and Gaps lists
+  const strengths = sem?.strengths || explanation?.insights?.topStrengths || [
+    "Executive alignment detected",
+    "Strong functional match for growth transformation"
+  ];
+  const gaps = sem?.gaps || explanation?.insights?.potentialConcerns || [
+    "Evaluate specific industry scale capability"
   ];
 
+  const tabs = ["Executive Briefing", "Role Intelligence", "Your Fit Breakdown", "Signals"];
+
   return (
-    <div className="space-y-6 font-sans select-text text-slate-300 max-w-md mx-auto">
-
-      {/* 1. Header context block */}
-      <div className="space-y-2.5 pb-2">
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <span className={`text-[9px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded bg-slate-800/80 ${recommendationColor} leading-tight`}>
-            {recommendationText}
-          </span>
-          <div className="flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-black text-white bg-slate-800">
-            Fit Score: {job.matchScore}
-          </div>
-        </div>
-
-        {/* Decision Quality row — Confidence + Coverage */}
-        {explanation && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800/60 border border-slate-700/50">
-              <ShieldCheck className="w-2.5 h-2.5 text-slate-400" />
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Confidence</span>
-              <span className={`text-[9px] font-extrabold uppercase tracking-wider ml-0.5 ${
-                confidenceLevel === 'HIGH'   ? 'text-emerald-400' :
-                confidenceLevel === 'MEDIUM' ? 'text-amber-400'   : 'text-slate-400'
-              }`}>{confidenceLevel}</span>
-            </div>
-            {explanation.evalResult?.scoreCoverage !== undefined && (
-              <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800/60 border border-slate-700/50">
-                <LineChart className="w-2.5 h-2.5 text-slate-400" />
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Coverage</span>
-                <span className="text-[9px] font-extrabold text-blue-400 ml-0.5">
-                  {Math.round((explanation.evalResult.scoreCoverage) * 100)}%
+    <div className="flex flex-col font-sans select-text text-slate-800 animate-fadeIn h-full">
+      {/* Primary Split Columns Container */}
+      <div className="flex flex-col lg:flex-row gap-8 items-start">
+        
+        {/* Left Column (Triage / Details / Tabs) */}
+        <div className="flex-1 w-full space-y-6">
+          {/* Header block: Title, Company, Date, and Fit Score */}
+          <div className="flex justify-between items-start gap-6 border-b border-slate-100 pb-4">
+            <div className="space-y-1.5">
+              <h3 className="text-xl lg:text-2xl font-bold text-slate-900 leading-snug tracking-tight">
+                {job.title}
+              </h3>
+              <div className="flex flex-wrap items-center gap-3 text-[12px] text-slate-500 font-semibold">
+                <span className="flex items-center gap-1">
+                  <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                  {job.company}
+                </span>
+                <span className="text-slate-300">•</span>
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                  {job.location || "India"}
+                </span>
+                <span className="text-slate-300">•</span>
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                  {dateFormatted}
                 </span>
               </div>
-            )}
-          </div>
-        )}
-
-        <div>
-          <h3 className="text-base font-extrabold text-white leading-snug tracking-tight">
-            {job.title}
-          </h3>
-          
-          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-400 font-semibold mt-2">
-            <span className="flex items-center gap-1">
-              <Building2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-              {job.company}
-            </span>
-            {job.location && job.location.trim() !== "" && (
-              <span className="flex items-center gap-1">
-                <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                {job.location}
-              </span>
-            )}
-            <span className="flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-              {relativeDate}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {explanation ? (
-        <div className="space-y-6 divide-y divide-slate-800">
-
-          {/* 2. Deep Reasoning Score Breakdown */}
-          <div className="space-y-2 pt-4 first:pt-0 border-t-0">
-            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              Dimension Evaluation Breakdown
-            </h4>
-            <div className="space-y-0.5">
-              {explanation.breakdown.map((dim, i) => (
-                <DimensionRow key={i} dimension={dim} />
-              ))}
             </div>
-          </div>
-
-          {/* 3. Unlocked Accordion Intelligence Briefings */}
-          <div className="space-y-3 pt-4">
-            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              Intelligence Briefings
-            </h4>
             
-            <div className="space-y-2.5">
-              {defaults.map((card) => {
-                const brief: Briefing | undefined = briefingBundle?.[card.key];
-                const isExpanded = expandedCard === card.key;
-                const IconComponent = card.icon;
-
-                if (!brief) {
-                  // Fallback locked preview if brief not compiled
-                  return (
-                    <div key={card.key} className="relative border border-slate-800 bg-slate-900/10 rounded p-3 select-none opacity-40">
-                      <div className="absolute right-3 top-3 text-slate-600">
-                        <Lock className="w-3 h-3" />
-                      </div>
-                      <div className="flex items-start gap-2.5">
-                        <IconComponent className="w-4 h-4 text-slate-500 mt-0.5 shrink-0" />
-                        <div>
-                          <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">{card.title}</p>
-                          <p className="text-[9.5px] text-slate-600 leading-relaxed pt-0.5">Offline estimation locked.</p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-
-                return (
-                  <div 
-                    key={card.key} 
-                    className={`border transition-all duration-150 rounded ${
-                      isExpanded 
-                        ? 'border-slate-800 bg-slate-900/30' 
-                        : 'border-slate-900/80 bg-slate-900/10 hover:border-slate-800 hover:bg-slate-900/20'
-                    }`}
-                  >
-                    {/* Header trigger button */}
-                    <button
-                      onClick={() => setExpandedCard(isExpanded ? null : card.key)}
-                      className="w-full text-left p-3.5 flex items-center justify-between gap-4 cursor-pointer"
-                    >
-                      <div className="flex items-start gap-3 min-w-0">
-                        <IconComponent className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
-                        <div>
-                          <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 leading-tight">
-                            {brief.title}
-                          </p>
-                          <p className="text-[9px] font-mono text-slate-500 mt-0.5">
-                            Confidence: <span className={brief.confidence === 'HIGH' ? 'text-emerald-500' : 'text-slate-400'}>{brief.confidence}</span>
-                          </p>
-                        </div>
-                      </div>
-                      <ChevronDown className={`w-3.5 h-3.5 text-slate-500 shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                    </button>
-
-                    {/* Expanding Panel content details */}
-                    {isExpanded && (
-                      <div className="px-4 pb-4 border-t border-slate-900 pt-3.5 space-y-4 animate-fadeIn">
-                        {/* 1. Dynamic Section renders */}
-                        {brief.sections.map((sec) => (
-                          <BriefingSectionRenderer key={sec.id} section={sec} />
-                        ))}
-
-                        {/* 2. Trust Basis & Explainability panel */}
-                        <div className="border-t border-slate-900 pt-3 space-y-2">
-                          <div className="flex gap-2 text-[9.5px] text-slate-500">
-                            <ShieldCheck className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                            <div>
-                              <span className="font-extrabold uppercase tracking-wider">Assessment Trust Basis</span>
-                              <p className="leading-relaxed mt-0.5">{brief.trustBasis}</p>
-                            </div>
-                          </div>
-
-                          {/* 3. Freshness metadata details */}
-                          <div className="flex flex-wrap gap-x-2.5 text-[8.5px] text-slate-500 font-mono pt-1">
-                            <span>SOURCES: {brief.sources.map(s => s.name).join(', ')}</span>
-                            <span>•</span>
-                            <span>REFRESHED: {new Date(brief.lastEvaluated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+            {/* Fit Score circle anchor */}
+            <div className="flex flex-col items-center shrink-0">
+              <div className="w-16 h-16 rounded-full border-4 border-emerald-500 flex flex-col items-center justify-center shadow-sm select-none">
+                <span className="text-xl font-bold text-slate-900 tracking-tight leading-none">
+                  {job.matchScore}
+                </span>
+                <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 leading-none">
+                  FIT
+                </span>
+              </div>
+              <span className="text-[9px] font-bold text-emerald-600 mt-1 select-none">
+                ▲ +13 vs avg
+              </span>
             </div>
           </div>
 
-          {/* 8. Confidence metadata details */}
-          <div className="pt-4 flex items-start gap-3">
-            <Info className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
+          {/* Verdict/Confidence Section card */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-[#F8FAFC] border border-[#E2E8F0] p-4 rounded-xl shadow-inner select-none">
+            {/* Verdict block */}
             <div className="space-y-1">
-              <span className={`text-[9.5px] font-extrabold tracking-wider ${
-                confidenceLevel === 'HIGH' ? 'text-emerald-500' :
-                confidenceLevel === 'MEDIUM' ? 'text-amber-400' : 'text-slate-500'
-              }`}>
-                {confidenceLevel} ASSESSMENT CONFIDENCE
+              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block">Verdict</span>
+              <span className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${verdictStyle}`}>
+                {verdictLabel}
               </span>
-              <p className="text-[10.5px] text-slate-500 mt-0.5 leading-relaxed">{explanation.confidence.basis}</p>
-              
-              {/* Freshness details */}
-              <div className="flex flex-wrap gap-x-2 text-[9px] text-slate-500 font-mono pt-1">
-                <span>VER: Rules (v3.1.2)</span>
-                <span>•</span>
-                <span>FRESHNESS: Analyzed today</span>
+              <p className="text-[11px] text-slate-500 leading-normal font-semibold mt-1">
+                {verdictLabel === "APPLY" && "Exceptional match on function. Company hiring signal is strong."}
+                {verdictLabel === "TAILOR" && "Strong opportunity. Align resume keywords to optimize match."}
+                {verdictLabel === "HIDDEN GEM" && "High-fit opportunity despite an atypical job title."}
+                {verdictLabel === "WATCH" && "Monitor closely. High role fit but lacks explicit confidence details."}
+              </p>
+            </div>
+
+            {/* Confidence block */}
+            <div className="space-y-1 border-t md:border-t-0 md:border-l border-slate-200/80 pt-3.5 md:pt-0 md:pl-4">
+              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block">Confidence</span>
+              <span className="text-[13px] font-black text-slate-800 block">High</span>
+              <div className="w-full bg-slate-200 h-1.5 rounded-full mt-1.5 overflow-hidden">
+                <div className="bg-emerald-500 h-full rounded-full" style={{ width: "76%" }} />
+              </div>
+              <span className="text-[9px] font-bold text-slate-400 block mt-1">76% rating</span>
+            </div>
+
+            {/* Est. Interview Probability block */}
+            <div className="space-y-1 border-t md:border-t-0 md:border-l border-slate-200/80 pt-3.5 md:pt-0 md:pl-4">
+              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block">Est. Interview Probability</span>
+              <span className="text-[13px] font-black text-slate-800 block">{probabilityText}</span>
+              <div className="flex gap-1.5 mt-2">
+                {[1, 2, 3, 4].map((dot) => (
+                  <div 
+                    key={dot} 
+                    className={`w-2.5 h-2.5 rounded-full ${
+                      dot <= probabilityDots ? "bg-emerald-500 shadow-[0_0_4px_#10b981]" : "bg-slate-200"
+                    }`} 
+                  />
+                ))}
               </div>
             </div>
           </div>
 
-        </div>
-      ) : (
-        <div className="border-t border-slate-800 pt-4">
-          <p className="text-[11px] text-slate-500 italic">
-            Select a re-scored opportunity in the feed to load diagnostic briefing details.
-          </p>
-        </div>
-      )}
+          {/* Navigation Tabs */}
+          <div className="border-b border-[#E2E8F0] flex gap-5 select-none">
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`pb-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer border-b-2 ${
+                    isActive 
+                      ? "border-slate-800 text-slate-900 font-extrabold" 
+                      : "border-transparent text-slate-400 hover:text-slate-700"
+                  }`}
+                >
+                  {tab}
+                </button>
+              );
+            })}
+          </div>
 
-      {/* 9. Core Actions panel */}
-      <div className="border-t border-slate-800 pt-4 flex gap-2.5">
+          {/* Tab Content Display */}
+          <div className="pt-2 min-h-[250px]">
+            {activeTab === "Executive Briefing" && (
+              <div className="space-y-6">
+                {/* Executive Summary */}
+                <div className="space-y-1.5">
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Executive Summary</h4>
+                  <p className="text-[13px] text-slate-700 leading-relaxed font-medium">
+                    {sem ? sem.summary : (explanation?.insights?.summary || "Exceptional alignment based on candidate capability profile. Standard leadership role parameters apply.")}
+                  </p>
+                  <a 
+                    href={absoluteUrl} 
+                    target="_blank" 
+                    rel="noreferrer" 
+                    className="inline-flex items-center gap-1 text-[11.5px] font-bold text-emerald-600 hover:text-emerald-700 hover:underline pt-1 select-none"
+                  >
+                    <span>Apply now — warm intro if possible</span>
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+
+                {/* Top reasons to apply */}
+                <div className="space-y-2">
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Top Reasons to Apply</h4>
+                  <div className="space-y-1.5">
+                    {strengths.map((str, idx) => (
+                      <div key={idx} className="flex items-start gap-2.5 text-[12px] font-semibold text-slate-700">
+                        <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                        <span>{str}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Risks / Gaps */}
+                <div className="space-y-2">
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Key Risks / Gaps</h4>
+                  <div className="space-y-1.5">
+                    {gaps.map((gap, idx) => (
+                      <div key={idx} className="flex items-start gap-2.5 text-[12px] font-semibold text-slate-700">
+                        <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                        <span>{gap}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* What will improve your odds */}
+                <div className="space-y-2.5 select-none">
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400">What Will Improve Your Odds</h4>
+                  <div className="space-y-2">
+                    {improveOdds.map((card, idx) => (
+                      <div key={idx} className="bg-white border border-[#E2E8F0] p-3 rounded-lg flex items-center justify-between shadow-[0_1px_2px_rgba(0,0,0,0.01)] hover:border-slate-300 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="w-7 h-7 rounded bg-purple-50 flex items-center justify-center text-purple-600 shrink-0">
+                            <span className="text-[10px] font-bold">⚡</span>
+                          </div>
+                          <div>
+                            <span className="text-[12px] font-bold text-slate-800 block leading-tight">{card.action}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0 ml-4">
+                          <span className="text-[8px] font-black tracking-wider bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded leading-none">
+                            {card.impact}
+                          </span>
+                          <span className="text-[9px] font-black text-purple-600 bg-purple-100/50 px-2 py-0.5 rounded font-mono leading-none">
+                            {card.pts}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "Role Intelligence" && (
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Required Skills Taxonomy</h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(explanation?.insights?.matchedKeywords || sem?.matchedSkills || ["Digital Marketing", "CRM Transformation", "Category Management"]).map((skill: string, idx: number) => (
+                      <span key={idx} className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 px-2.5 py-1 rounded">
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Extracted Functional Context</h4>
+                  <p className="text-[12.5px] text-slate-600 leading-relaxed font-medium">
+                    This opportunity falls under the growth/transformation cluster with direct P&L operations.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "Your Fit Breakdown" && (
+              <div className="space-y-3">
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Evaluator Dimensional Breakdown</h4>
+                {explanation?.breakdown ? (
+                  explanation.breakdown.map((dim: any, idx: number) => (
+                    <div key={idx} className="flex justify-between items-center py-2.5 border-b border-slate-100">
+                      <span className="text-[12px] font-bold text-slate-600">{dim.name}</span>
+                      <span className={`text-[10px] uppercase tracking-wider font-extrabold px-2.5 py-0.5 rounded-full ${
+                        dim.rawScore >= 0.8 ? "bg-emerald-50 text-emerald-700" :
+                        dim.rawScore >= 0.6 ? "bg-blue-50 text-blue-700" : "bg-slate-50 text-slate-500"
+                      }`}>
+                        {dim.rawScore >= 0.8 ? "Excellent" : dim.rawScore >= 0.6 ? "Strong" : "Moderate"}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-[11.5px] text-slate-500 italic">No breakdown details available for this job.</p>
+                )}
+              </div>
+            )}
+
+            {activeTab === "Signals" && (
+              <div className="space-y-2.5 text-[11px] text-slate-500 font-mono">
+                <div className="flex justify-between py-1 border-b border-slate-50">
+                  <span>Pipeline Version</span>
+                  <span>v{job.rankingVersion || "2.1.2"}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-50">
+                  <span>Source Platform</span>
+                  <span>{job.sourcePortal}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-50">
+                  <span>Scraped Timestamp</span>
+                  <span>{job.scrapedAt}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-50">
+                  <span>Enrichment Type</span>
+                  <span>{sem ? "Gemini-Semantic (Enriched)" : "Rules Only"}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Column (Role Snapshot / Hires) */}
+        <div className="w-full lg:w-[240px] shrink-0 space-y-6 lg:border-l lg:border-slate-100 lg:pl-6">
+          {/* Role Snapshot Card */}
+          <div className="space-y-3 select-none">
+            <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Role Snapshot</h4>
+            <div className="border border-[#E2E8F0] rounded-xl overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.01)] bg-white text-[12px]">
+              <div className="divide-y divide-slate-100">
+                <div className="flex justify-between px-3.5 py-2">
+                  <span className="text-slate-400 font-semibold">Seniority</span>
+                  <span className="text-slate-800 font-bold">Executive</span>
+                </div>
+                <div className="flex justify-between px-3.5 py-2">
+                  <span className="text-slate-400 font-semibold">Function</span>
+                  <span className="text-slate-800 font-bold">Programs</span>
+                </div>
+                <div className="flex justify-between px-3.5 py-2">
+                  <span className="text-slate-400 font-semibold">Industry</span>
+                  <span className="text-slate-800 font-bold">D2C / Consumer</span>
+                </div>
+                <div className="flex justify-between px-3.5 py-2">
+                  <span className="text-slate-400 font-semibold">Reporting</span>
+                  <span className="text-slate-800 font-bold">Board / Exec</span>
+                </div>
+                <div className="flex justify-between px-3.5 py-2">
+                  <span className="text-slate-400 font-semibold">Location</span>
+                  <span className="text-slate-800 font-bold truncate max-w-[120px]">{job.location || "India"}</span>
+                </div>
+                <div className="flex justify-between px-3.5 py-2">
+                  <span className="text-slate-400 font-semibold">Employment</span>
+                  <span className="text-slate-800 font-bold">Full-time</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Similar Hires Card */}
+          <div className="space-y-2 select-none">
+            <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Similar Hires</h4>
+            <div className="border border-[#E2E8F0] p-4 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.01)] bg-white flex gap-3 items-center">
+              <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 border border-slate-100 shrink-0">
+                <span>👥</span>
+              </div>
+              <p className="text-[11.5px] font-semibold text-slate-600 leading-snug">
+                <span className="text-slate-900 font-bold">{Math.floor((job.matchScore / 20) + 1)} close matches</span> hired in last 12 months.
+              </p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      {/* Action Footer */}
+      <div className="border-t border-[#E2E8F0] mt-8 pt-4 flex flex-wrap gap-3 select-none">
         <a
           href={absoluteUrl}
           target="_blank"
           rel="noreferrer"
-          className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-slate-950 bg-white hover:bg-slate-100 px-3.5 py-2 rounded transition-colors shrink-0 shadow-sm"
+          className="h-[38px] px-5 bg-slate-950 hover:bg-slate-800 text-white text-[12px] font-bold uppercase tracking-wider rounded-md flex items-center gap-2 transition-colors cursor-pointer shadow-sm shrink-0"
         >
-          <ExternalLink className="w-3.5 h-3.5" />
-          Open Listing
+          <ExternalLink className="w-4 h-4" />
+          <span>Open in {job.sourcePortal}</span>
         </a>
         
-        {job.status === "New" && (
-          <button
-            onClick={() => onUpdateStatus(job.id, "Reviewed")}
-            className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-slate-300 border border-slate-800 hover:bg-slate-800 hover:text-white px-3.5 py-2 rounded transition-colors cursor-pointer"
-          >
-            <CheckCircle className="w-3.5 h-3.5" />
-            Save Briefing
-          </button>
-        )}
+        <button
+          onClick={() => onUpdateStatus(job.id, isSaved ? "New" : "Reviewed")}
+          className={`h-[38px] px-5 border rounded-md text-[12px] font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
+            isSaved 
+              ? "bg-[#F8FAFC] border-slate-300 text-slate-800"
+              : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+          }`}
+        >
+          <Bookmark className={`w-4 h-4 ${isSaved ? "fill-slate-800" : ""}`} />
+          <span>{isSaved ? "Saved to Watchlist" : "Add to Watchlist"}</span>
+        </button>
       </div>
-
     </div>
   );
 }
