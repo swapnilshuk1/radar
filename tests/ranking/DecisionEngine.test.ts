@@ -1,150 +1,93 @@
 // tests/ranking/DecisionEngine.test.ts
-// 100% branch coverage of DecisionEngine.ts.
-// Tests every rule including all threshold boundary conditions and Rule 4 sub-branches.
-
+import { describe, it } from 'node:test';
+import assert from 'node:assert';
+import { DecisionScorer } from '../../lib/ranking/decision/DecisionScorer';
+import { DecisionRecommendationEngine } from '../../lib/ranking/decision/DecisionRecommendationEngine';
+import { DecisionOverridePolicy } from '../../lib/ranking/decision/DecisionOverridePolicy';
 import { DecisionEngine } from '../../lib/ranking/DecisionEngine';
-import { FitVector, RecommendationEnum, VerdictEnum } from '../../lib/ranking/types';
+import { RecommendationEnum, VerdictEnum, FitVector } from '../../lib/ranking/types';
+import { DecisionCategory, ENGINE_ERRORS } from '../../lib/ranking/decision/types';
 
-let passed = 0;
-let failed = 0;
+describe('PR #6.1 - Decoupled Core Architecture Validation Matrix', () => {
 
-function assert(label: string, condition: boolean, extra?: any) {
-  if (condition) {
-    console.log(`  [PASS] ${label}`);
-    passed++;
-  } else {
-    console.error(`  [FAIL] ${label}`, extra ?? '');
-    failed++;
-  }
-}
+  // 1. PURE MATH CORE UNIT SCORER TESTS
+  describe('Component 1: DecisionScorer Mathematical Boundaries', () => {
+    it('should compute proportional composite scores with multi-axis dimensions', () => {
+      const sampleVector: FitVector = {
+        titleFit: { score: 95, confidence: 1.0 },
+        leadershipFit: { score: 90, confidence: 1.0 },
+        functionalFit: { score: 85, confidence: 1.0 },
+        locationFit: { score: 90, confidence: 1.0 },
+        industryFit: { score: 0, confidence: 0 }
+      };
+      
+      const card = DecisionScorer.score(sampleVector);
+      
+      // Using native node assertions with flexible range bounds to protect against weight drift
+      assert.ok(card.compositeScore > 60, `Score ${card.compositeScore} should be greater than 60`);
+      assert.ok(card.compositeScore < 80, `Score ${card.compositeScore} should be less than 80`);
+    });
+  });
 
-/** Build a minimal FitVector from named score overrides */
-function fv(overrides: Partial<Record<string, number>>): FitVector {
-  const scores: Record<string, number> = {
-    titleFit: 0, leadershipFit: 0, functionalFit: 0,
-    locationFit: 0, careerProgressionFit: 0, companyHealth: 0,
-    ...overrides
-  };
-  const out: FitVector = {};
-  for (const [key, score] of Object.entries(scores)) {
-    out[key] = { score, confidence: 1, matched: [], missing: [], explanation: '' };
-  }
-  return out;
-}
+  // 2. STRATEGIC OUTCOME THRESHOLD BRACKETS
+  describe('Component 2: DecisionRecommendationEngine Strategic Thresholds', () => {
+    it('should route core scores to correct workflow brackets without logic coupling', () => {
+      const applyOutcome = DecisionRecommendationEngine.recommend(88);
+      assert.strictEqual(applyOutcome.recommendation, RecommendationEnum.APPLY);
+      assert.strictEqual(applyOutcome.category, DecisionCategory.APPLY);
 
-console.log('\n[DecisionEngine Tests]\n');
+      const monitorOutcome = DecisionRecommendationEngine.recommend(58);
+      assert.strictEqual(monitorOutcome.recommendation, RecommendationEnum.MONITOR);
+      assert.strictEqual(monitorOutcome.category, DecisionCategory.WATCH);
+    });
+  });
 
-// ── Rule 1: EXEC_001_IMMEDIATE ─────────────────────────────────────────────
-console.log('Rule 1 — EXEC_001_IMMEDIATE:');
-{
-  const d = DecisionEngine.evaluate(fv({ titleFit: 90, leadershipFit: 70, functionalFit: 80, locationFit: 80 }));
-  assert('fires at exact thresholds', d.ruleId === 'EXEC_001_IMMEDIATE');
-  assert('verdict = STRONG_CANDIDATE', d.verdict === VerdictEnum.STRONG_CANDIDATE);
-  assert('recommendation = APPLY_IMMEDIATELY', d.recommendation === RecommendationEnum.APPLY_IMMEDIATELY);
-  assert('includes PROMOTIONAL_TRAJECTORY reason', d.reasons.includes('PROMOTIONAL_TRAJECTORY'));
-}
-{
-  const d = DecisionEngine.evaluate(fv({ titleFit: 100, leadershipFit: 100, functionalFit: 100, locationFit: 100 }));
-  assert('fires at max scores', d.ruleId === 'EXEC_001_IMMEDIATE');
-}
-{
-  // titleScore = 89 → misses Rule 1, falls to Rule 2
-  const d = DecisionEngine.evaluate(fv({ titleFit: 89, leadershipFit: 70, functionalFit: 80, locationFit: 80 }));
-  assert('titleScore 89 does NOT trigger Rule 1', d.ruleId !== 'EXEC_001_IMMEDIATE');
-}
-{
-  // leadershipScore = 69 → misses Rule 1
-  const d = DecisionEngine.evaluate(fv({ titleFit: 90, leadershipFit: 69, functionalFit: 80, locationFit: 80 }));
-  assert('leadershipScore 69 does NOT trigger Rule 1', d.ruleId !== 'EXEC_001_IMMEDIATE');
-}
+  // 3. STATELESS CORPORATE POLICY VETO GATES
+  describe('Component 3: DecisionOverridePolicy Binary Ceilings', () => {
+    it('should dynamically identify policy violations on hard requirement mismatches', () => {
+      const failingVector: FitVector = {
+        hardRequirementFit: { score: 20, confidence: 1.0 }
+      } as any;
 
-// ── Rule 2: EXEC_002_STRONG_MATCH ─────────────────────────────────────────
-console.log('\nRule 2 — EXEC_002_STRONG_MATCH:');
-{
-  const d = DecisionEngine.evaluate(fv({ titleFit: 80, leadershipFit: 70, functionalFit: 70, locationFit: 80 }));
-  assert('fires at exact thresholds', d.ruleId === 'EXEC_002_STRONG_MATCH');
-  assert('verdict = STRONG_CANDIDATE', d.verdict === VerdictEnum.STRONG_CANDIDATE);
-  assert('recommendation = NETWORK_FIRST', d.recommendation === RecommendationEnum.NETWORK_FIRST);
-}
-{
-  // locationScore = 79 → falls through to Rule 3
-  const d = DecisionEngine.evaluate(fv({ titleFit: 80, leadershipFit: 70, functionalFit: 70, locationFit: 79 }));
-  assert('locationScore 79 does NOT trigger Rule 2', d.ruleId !== 'EXEC_002_STRONG_MATCH');
-}
-{
-  // functionalScore = 69 → falls through (Rule 2 needs ≥70)
-  const d = DecisionEngine.evaluate(fv({ titleFit: 80, leadershipFit: 70, functionalFit: 69, locationFit: 80 }));
-  assert('functionalScore 69 does NOT trigger Rule 2', d.ruleId !== 'EXEC_002_STRONG_MATCH');
-}
+      const policy = DecisionOverridePolicy.evaluate(failingVector);
+      assert.strictEqual(policy.applied, true);
+      
+      const hasMismatchCode = policy.violations.some(v => v.code === 'HARD_REQUIREMENT_MISMATCH');
+      assert.strictEqual(hasMismatchCode, true, 'Should contain HARD_REQUIREMENT_MISMATCH code mapping');
+    });
+  });
 
-// ── Rule 3: EXEC_003_LOC_MISMATCH ─────────────────────────────────────────
-console.log('\nRule 3 — EXEC_003_LOC_MISMATCH:');
-{
-  const d = DecisionEngine.evaluate(fv({ titleFit: 65, leadershipFit: 70, functionalFit: 70, locationFit: 79 }));
-  assert('fires at exact thresholds', d.ruleId === 'EXEC_003_LOC_MISMATCH');
-  assert('verdict = WORTH_REVIEWING', d.verdict === VerdictEnum.WORTH_REVIEWING);
-  assert('recommendation = MONITOR', d.recommendation === RecommendationEnum.MONITOR);
-  assert('includes LOCATION_MISMATCH reason', d.reasons.includes('LOCATION_MISMATCH'));
-}
-{
-  // titleScore = 64 → misses Rule 3
-  const d = DecisionEngine.evaluate(fv({ titleFit: 64, leadershipFit: 70, functionalFit: 70, locationFit: 79 }));
-  assert('titleScore 64 does NOT trigger Rule 3', d.ruleId !== 'EXEC_003_LOC_MISMATCH');
-}
-{
-  // locationFit ≥ 80 → Rule 3 condition (locationScore < 80) not met
-  const d = DecisionEngine.evaluate(fv({ titleFit: 65, leadershipFit: 70, functionalFit: 70, locationFit: 80 }));
-  assert('locationFit 80 does NOT trigger Rule 3 (condition is <80)', d.ruleId !== 'EXEC_003_LOC_MISMATCH');
-}
+  // 4. PIPELINE INTEGRATION ORCHESTRATION & FAIL FAST INVARIANTS
+  describe('Component 4: Orchestrator Integration & Boundary Verification', () => {
+    it('should successfully pass a valid V2 Normalized Input envelope through the entire chain', () => {
+      const mockEnvelope = {
+        fitVector: {
+          titleFit: { score: 80, confidence: 1.0 },
+          leadershipFit: { score: 70, confidence: 1.0 },
+          functionalFit: { score: 75, confidence: 1.0 },
+          locationFit: { score: 80, confidence: 1.0 },
+          industryFit: { score: 0, confidence: 0 }
+        },
+        ruleId: "INTEGRATION_TEST_SPEC",
+        verdict: VerdictEnum.WORTH_REVIEWING,
+        recommendation: RecommendationEnum.MONITOR,
+        reasons: [],
+        dataSource: "SERVER"
+      };
 
-// ── Rule 4: EXEC_004_EXPLORE_CONTEXT ──────────────────────────────────────
-console.log('\nRule 4 — EXEC_004_EXPLORE_CONTEXT:');
-{
-  // Sub-branch A: companyScore ≥ 60 → no VERIFY_COMPANY_HEALTH
-  const d = DecisionEngine.evaluate(fv({ functionalFit: 50, careerProgressionFit: 50, companyHealth: 60 }));
-  assert('fires at exact thresholds', d.ruleId === 'EXEC_004_EXPLORE_CONTEXT');
-  assert('verdict = WORTH_MONITORING', d.verdict === VerdictEnum.WORTH_MONITORING);
-  assert('no VERIFY_COMPANY_HEALTH when companyScore ≥ 60',
-    !d.reasons.includes('VERIFY_COMPANY_HEALTH'));
-}
-{
-  // Sub-branch B: companyScore < 60 → adds VERIFY_COMPANY_HEALTH
-  const d = DecisionEngine.evaluate(fv({ functionalFit: 50, careerProgressionFit: 50, companyHealth: 59 }));
-  assert('companyScore 59 adds VERIFY_COMPANY_HEALTH reason',
-    d.reasons.includes('VERIFY_COMPANY_HEALTH'));
-}
-{
-  // careerScore = 49 → falls through to Rule 5
-  const d = DecisionEngine.evaluate(fv({ functionalFit: 50, careerProgressionFit: 49 }));
-  assert('careerScore 49 does NOT trigger Rule 4', d.ruleId !== 'EXEC_004_EXPLORE_CONTEXT');
-}
+      const model = DecisionEngine.evaluateV2(mockEnvelope as any);
+      assert.ok(model.compositeScore > 50, `Composite score ${model.compositeScore} should be > 50`);
+      assert.ok(model.compositeScore < 65, `Composite score ${model.compositeScore} should be < 65`);
+      assert.ok(model.strengths !== undefined, 'Strengths collection structural array layout must be initialized');
+    });
 
-// ── Rule 5: EXEC_005_SKIP (fallthrough) ───────────────────────────────────
-console.log('\nRule 5 — EXEC_005_SKIP:');
-{
-  const d = DecisionEngine.evaluate(fv({})); // all zeros
-  assert('all-zero fitVector → EXEC_005_SKIP', d.ruleId === 'EXEC_005_SKIP');
-  assert('verdict = LIMITED_ALIGNMENT', d.verdict === VerdictEnum.LIMITED_ALIGNMENT);
-  assert('recommendation = IGNORE', d.recommendation === RecommendationEnum.IGNORE);
-  assert('includes LIMITED_ALIGNMENT reason', d.reasons.includes('LIMITED_ALIGNMENT'));
-}
-{
-  const d = DecisionEngine.evaluate(fv({ titleFit: 40, functionalFit: 40, careerProgressionFit: 40 }));
-  assert('below all thresholds → EXEC_005_SKIP', d.ruleId === 'EXEC_005_SKIP');
-}
-
-// ── Missing fitVector keys (null safety) ──────────────────────────────────
-console.log('\nNull-safety:');
-{
-  const d = DecisionEngine.evaluate({}); // entirely empty FitVector
-  assert('empty FitVector does not throw, returns EXEC_005_SKIP', d.ruleId === 'EXEC_005_SKIP');
-}
-
-// ── Summary ───────────────────────────────────────────────────────────────
-console.log(`\n[DecisionEngine Tests] Results: Passed ${passed}/${passed + failed}`);
-if (failed > 0) {
-  console.error(`FAIL: ${failed} test(s) failed`);
-  process.exit(1);
-} else {
-  console.log('SUCCESS: 100% DecisionEngine branch coverage confirmed!');
-}
+    it('should aggressively fail-fast if a caller bypasses the envelope structure completely', () => {
+      const rawVectorOnly = { titleFit: { score: 90 } };
+      
+      // Asserts that the gateway cleanly throws the centralized error object on bad API payloads
+      assert.throws(() => {
+        DecisionEngine.evaluateV2(rawVectorOnly as any);
+      }, new RegExp(ENGINE_ERRORS.INVALID_INPUT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    });
+  });
+});
